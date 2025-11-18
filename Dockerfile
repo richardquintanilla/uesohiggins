@@ -1,11 +1,13 @@
 FROM rocker/shiny:latest
 
-COPY shiny-server.conf /etc/shiny-server/shiny-server.conf
+# Copiar la app a la carpeta default donde Shiny ya espera apps
+COPY . /srv/shiny-server/
 
-RUN mkdir -p /srv/shiny-server/app/
-COPY app.R /srv/shiny-server/app/
-COPY data /srv/shiny-server/app/data/
-
+# Exponer puerto correcto para Render
 EXPOSE 8080
+
+# Forzar Shiny a escuchar en 0.0.0.0:8080
+ENV SHINY_PORT=8080
+ENV SHINY_HOST=0.0.0.0
 
 CMD ["/usr/bin/shiny-server"]
