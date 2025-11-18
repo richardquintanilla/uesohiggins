@@ -110,4 +110,14 @@ server <- function(input, output, session) {
   })
 }
 
+theme_set(
+  theme_minimal(base_size = 13) +
+    theme(
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA),
+      legend.position = "bottom",
+      text = element_text(color = "#1a1a1a")
+    )
+)
+
 shinyApp(ui, server)
