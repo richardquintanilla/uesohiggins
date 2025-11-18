@@ -6,6 +6,11 @@ library(readr)
 library(ggplot2)
 
 ui <- fluidPage(
+
+   tags$head(
+    tags$link(rel="stylesheet", type="text/css", href="styles.css")
+  ),
+  
   titlePanel("UES O'Higgins – Reportes"),
 
   sidebarLayout(
