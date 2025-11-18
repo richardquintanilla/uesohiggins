@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean
 
 # Instalar paquetes de R que tu app necesite
-RUN R -e "install.packages(c('shiny', 'rmarkdown', 'DT', 'tidyverse', 'ggplot2'))"
+RUN R -e "install.packages(c('shiny', 'rmarkdown', 'DT', 'tidyverse', 'ggplot2', 'readr'))"
 
 # Copiar el contenido del repo al servidor
 COPY . /srv/shiny-server/
