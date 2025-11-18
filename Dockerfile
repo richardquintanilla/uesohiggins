@@ -1,12 +1,20 @@
-FROM rocker/shiny:latest
+FROM rocker/shiny:4.3.1
 
-# Copiar la app a la carpeta default donde Shiny ya espera apps
+# Instalar paquetes necesarios
+RUN install2.r --error \
+    shiny \
+    dplyr \
+    readr \
+    ggplot2
+
+# Copiar la aplicación
 COPY . /srv/shiny-server/
 
-# Exponer puerto correcto para Render
-EXPOSE 8080
+# Dar permisos correctos
+RUN chown -R shiny:shiny /srv/shiny-server
 
-# Forzar Shiny a escuchar en 0.0.0.0:8080
+# Render usa el puerto 8080
+EXPOSE 8080
 ENV SHINY_PORT=8080
 ENV SHINY_HOST=0.0.0.0
 
