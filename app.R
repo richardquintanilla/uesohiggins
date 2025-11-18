@@ -1,3 +1,5 @@
+options(shiny.port = 8080, shiny.host = "0.0.0.0")
+
 library(shiny)
 library(dplyr)
 library(readr)
