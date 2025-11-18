@@ -1,24 +1,10 @@
 FROM rocker/shiny:latest
 
-# Instalar paquetes del sistema necesarios
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libfontconfig1-dev \
-    && apt-get clean
-
-# Instalar paquetes de R que tu app necesite
-RUN R -e "install.packages(c('shiny', 'rmarkdown', 'DT', 'tidyverse', 'ggplot2', 'readr'))"
-
-# Copiar el contenido del repo al servidor
 COPY . /srv/shiny-server/
 
-# Cambiar permisos
-RUN chown -R shiny:shiny /srv/shiny-server
+# Render requiere que la app escuche en 0.0.0.0:8080
+RUN sed -i 's/3838/8080/g' /etc/shiny-server/shiny-server.conf
 
-# Puerto donde correrá Shiny
-EXPOSE 3838
+EXPOSE 8080
 
-# Comando de inicio
 CMD ["/usr/bin/shiny-server"]
