@@ -1,0 +1,69 @@
+/* ======== GLOBAL ======== */
+body {
+    background-color: #f4f7fb; /* gris muy claro */
+    font-family: "Roboto", "Segoe UI", sans-serif;
+    color: #1a1a1a;
+}
+
+/* ======== TITLES ======== */
+h1, h2, h3, h4 {
+    color: #003f8c; /* azul institucional */
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* ======== SIDEBAR ======== */
+.sidebar {
+    background-color: #003f8c !important; /* azul */
+    padding: 15px !important;
+}
+
+.sidebar .form-group label {
+    color: white !important;
+    font-weight: 500;
+}
+
+.sidebar select {
+    border-radius: 6px;
+}
+
+/* ======== MAIN PANEL ======== */
+.main-panel {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+/* ======== TABLE ======== */
+table {
+    background-color: white !important;
+    border-radius: 6px;
+}
+
+thead {
+    background-color: #003f8c;
+    color: white;
+}
+
+/* ======== PLOT BACKGROUND ======== */
+.plot-container {
+    padding: 10px;
+    background-color: white;
+    border-radius: 8px;
+}
+
+/* ======== BUTTONS (If you add buttons later) ======== */
+.btn-primary {
+    background-color: #003f8c;
+    border-color: #003f8c;
+}
+
+.btn-primary:hover {
+    background-color: #e0002a; /* rojo acento */
+    border-color: #e0002a;
+}
+
+/* ======== ACCENT ELEMENTS ======== */
+.accent {
+    color: #e0002a; /* rojo institucional */
+}
