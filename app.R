@@ -27,21 +27,23 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
-  # ---- CARGAS QUE SE HACEN SOLO CUANDO SE NECESITAN ----
+  # ---- CARGA DE DATOS ----
   cargar_reporte_a <- reactive({
-    read_csv("data/coberturas.csv")
+    read_csv("data/coberturas.csv") %>%
+      rename(categoria = categoria, x = x, y = y)
   })
 
   cargar_reporte_b <- reactive({
-    read_csv("data/influenza.csv")
+    read_csv("data/influenza.csv") %>%
+      rename(fecha = fecha, valor = valor, grupo = grupo)
   })
 
   cargar_reporte_c <- reactive({
-    read_csv("data/agentes.csv")
+    read_csv("data/agentes.csv") %>%
+      rename(x = x, y = y, region = region)
   })
 
-
-  # ---- CONTENIDO DE CADA REPORTE ----
+  # ---- CONTENIDO UI DINÁMICO ----
   output$contenido_reporte <- renderUI({
 
     if (input$reporte == "Reporte A – Coberturas") {
@@ -70,29 +72,48 @@ server <- function(input, output, session) {
     }
   })
 
-  # ---- TABLAS Y GRÁFICOS INDIVIDUALES ----
+  # ---- TABLAS Y GRÁFICOS ----
+
+  # --- REPORTE A ---
   output$tabla_a <- renderTable({
     cargar_reporte_a()
   })
+
   output$plot_a <- renderPlot({
-    ggplot(cargar_reporte_a(), aes(comuna, cobertura)) +
-      geom_col() + theme_minimal()
+    datos <- cargar_reporte_a()
+
+    ggplot(datos, aes(x = categoria, y = y)) +
+      geom_col(fill = "steelblue") +
+      labs(x = "Categoría", y = "Valor") +
+      theme_minimal()
   })
 
+  # --- REPORTE B ---
   output$tabla_b <- renderTable({
     cargar_reporte_b()
   })
+
   output$plot_b <- renderPlot({
-    ggplot(cargar_reporte_b(), aes(semana, casos)) +
-      geom_line() + theme_minimal()
+    datos <- cargar_reporte_b()
+
+    ggplot(datos, aes(x = fecha, y = valor, group = grupo, color = grupo)) +
+      geom_line() +
+      labs(x = "Fecha", y = "Valor", color = "Grupo") +
+      theme_minimal()
   })
 
+  # --- REPORTE C ---
   output$tabla_c <- renderTable({
     cargar_reporte_c()
   })
+
   output$plot_c <- renderPlot({
-    ggplot(cargar_reporte_c(), aes(agente, n)) +
-      geom_col() + theme_minimal()
+    datos <- cargar_reporte_c()
+
+    ggplot(datos, aes(x = x, y = y, fill = region)) +
+      geom_col() +
+      labs(x = "Agente (x)", y = "Casos (y)", fill = "Región") +
+      theme_minimal()
   })
 }
 
