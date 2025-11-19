@@ -46,31 +46,29 @@ server <- function(input, output, session) {
   # ---- CONTENIDO UI DINÁMICO ----
   output$contenido_reporte <- renderUI({
 
-    if (input$reporte == "Reporte A – Coberturas") {
+  if (input$reporte == "Reporte A – Coberturas") {
 
-      tagList(
-        h3("Reporte A – Coberturas"),
-        tableOutput("tabla_a"),
-        plotOutput("plot_a")
-      )
+    tabsetPanel(
+      tabPanel("Tabla", tableOutput("tabla_a")),
+      tabPanel("Gráfico", plotOutput("plot_a"))
+    )
 
-    } else if (input$reporte == "Reporte B – Influenza") {
+  } else if (input$reporte == "Reporte B – Influenza") {
 
-      tagList(
-        h3("Reporte B – Influenza"),
-        tableOutput("tabla_b"),
-        plotOutput("plot_b")
-      )
+    tabsetPanel(
+      tabPanel("Tabla", tableOutput("tabla_b")),
+      tabPanel("Gráfico", plotOutput("plot_b"))
+    )
 
-    } else {
+  } else {
 
-      tagList(
-        h3("Reporte C – Agentes Etiológicos"),
-        tableOutput("tabla_c"),
-        plotOutput("plot_c")
-      )
-    }
-  })
+    tabsetPanel(
+      tabPanel("Tabla", tableOutput("tabla_c")),
+      tabPanel("Gráfico", plotOutput("plot_c"))
+    )
+  }
+})
+
 
   # ---- TABLAS Y GRÁFICOS ----
 
@@ -118,3 +116,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
