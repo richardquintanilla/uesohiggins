@@ -45,11 +45,6 @@ server <- function(input, output, session) {
   output$contenido_reporte <- renderUI({
 
     if (input$reporte == "Reporte A – Coberturas") {
-      datos <- cargar_reporte_a()
-
-      plot_a <- ggplot(datos, aes(x = comuna, y = cobertura)) +
-        geom_col() +
-        theme_minimal()
 
       tagList(
         h3("Reporte A – Coberturas"),
@@ -58,11 +53,6 @@ server <- function(input, output, session) {
       )
 
     } else if (input$reporte == "Reporte B – Influenza") {
-      datos <- cargar_reporte_b()
-
-      plot_b <- ggplot(datos, aes(x = semana, y = casos)) +
-        geom_line() +
-        theme_minimal()
 
       tagList(
         h3("Reporte B – Influenza"),
@@ -71,11 +61,6 @@ server <- function(input, output, session) {
       )
 
     } else {
-      datos <- cargar_reporte_c()
-
-      plot_c <- ggplot(datos, aes(x = agente, y = n)) +
-        geom_col() +
-        theme_minimal()
 
       tagList(
         h3("Reporte C – Agentes Etiológicos"),
