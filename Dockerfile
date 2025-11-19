@@ -1,20 +1,21 @@
-FROM rocker/shiny:latest
+FROM rocker/r-ver:4.4.0
 
-# Dependencias del sistema
+# Instalar sistema
 RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libfontconfig1-dev \
+    libssl-dev libcurl4-openssl-dev libxml2-dev \
     && apt-get clean
 
-# Instalar paquetes R necesarios (ajusta la lista si ya tienes renv)
-RUN R -e "install.packages(c('shiny','DT','plotly','dplyr','readr'), repos='https://cloud.r-project.org')"
+# Instalar Shiny
+RUN R -e "install.packages(c('shiny', 'tidyverse'))"
 
-# Copiar todo el repo al contenedor
-COPY . /srv/shiny-server/
-RUN chown -R shiny:shiny /srv/shiny-server
+# Crear carpeta de la app
+WORKDIR /app
+COPY app.R /app/
+
+# Render setea PORT dinámicamente
+ENV PORT=3838
 
 EXPOSE 3838
 
-CMD ["/usr/bin/shiny-server", "/srv/shiny-server/shiny-server.conf"]
+# Ejecutar la app
+CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT')))"]
