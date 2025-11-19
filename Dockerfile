@@ -1,35 +1,20 @@
-# Dockerfile (para Render.com / cualquier plataforma que entregue $PORT)
 FROM rocker/shiny:latest
 
-# (Opcional) versión fija:
-# FROM rocker/shiny:4.2.3
-
-# install system libraries required by some R packages
+# Dependencias del sistema
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
     libxml2-dev \
-    libgeos-dev \
-    libudunits2-dev \
-    libgdal-dev \
-    libproj-dev \
-    locales \
-    && rm -rf /var/lib/apt/lists/*
+    libfontconfig1-dev \
+    && apt-get clean
 
-# set locale
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+# Instalar paquetes R necesarios (ajusta la lista si ya tienes renv)
+RUN R -e "install.packages(c('shiny','DT','plotly','dplyr','readr'), repos='https://cloud.r-project.org')"
 
-# copy app
+# Copiar todo el repo al contenedor
 COPY . /srv/shiny-server/
+RUN chown -R shiny:shiny /srv/shiny-server
 
-WORKDIR /srv/shiny-server/
-
-# install R packages (add or remove según necesites)
-RUN R -e "install.packages(c('shiny','DT','ggplot2','plotly','leaflet','dplyr'), repos='https://cloud.r-project.org')"
-
-# Expose port (no importa para Render, pero documenta)
 EXPOSE 3838
 
-# Start the app using the PORT env var (Render sets PORT). 
-# If PORT undefined, default to 3838.
-CMD R -e "port <- as.integer(Sys.getenv('PORT', Sys.getenv('SHINY_PORT','3838'))); if(is.na(port)) port <- 3838; message('Starting Shiny on port: ', port); shiny::runApp('/srv/shiny-server', host='0.0.0.0', port = port)"
+CMD ["/usr/bin/shiny-server", "/srv/shiny-server/shiny-server.conf"]
