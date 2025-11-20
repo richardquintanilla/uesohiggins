@@ -4,7 +4,7 @@ library(shinydashboard)
 ui <- dashboardPage(
   dashboardHeader(
     title = tags$div(
-      tags$img(src = "logo.png", height = "40px", style = "margin-right:10px;"),
+      tags$img(src = "logo_ues_blanco.png", height = "40px", style = "margin-right:10px;"),
       "Dashboard de Reportes"
     )
   ),
@@ -87,3 +87,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
