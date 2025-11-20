@@ -35,7 +35,7 @@ ui <- fluidPage(
       }
 
       .sidebar-logo {
-        width: 120px;
+        width: 140px;   /* <- TAMAÑO FIJO */
         margin-bottom: 20px;
       }
 
@@ -45,7 +45,6 @@ ui <- fluidPage(
         color: #555;
       }
 
-      /* Filtros horizontales */
       .filtro-box {
         display: inline-block;
         margin-right: 20px;
@@ -66,10 +65,8 @@ ui <- fluidPage(
       width = 2,
       div(class = "sidebar-custom",
 
-          # Logo desde /www
           img(src = "logo_blanco_ues.png", class = "sidebar-logo"),
 
-          # Selector de reporte
           selectInput(
             "reporte",
             "Seleccione un reporte:",
@@ -90,7 +87,6 @@ ui <- fluidPage(
     column(
       width = 10,
 
-      # FILTROS HORIZONTALES
       uiOutput("filtros"),
 
       tabsetPanel(
@@ -120,10 +116,7 @@ server <- function(input, output, session) {
     }
   })
 
-
-  # ==========================================
-  # FILTROS DINÁMICOS + MULTIPLE + HORIZONTALES
-  # ==========================================
+  # ---- FILTROS ----
   output$filtros <- renderUI({
 
     datos <- datos_reporte()
@@ -136,7 +129,7 @@ server <- function(input, output, session) {
             selectInput(
               "filtro_cat",
               "Categoría:",
-              choices = unique(datos$categoria),
+              choices = c("Todos", unique(datos$categoria)),
               multiple = TRUE
             )
 
@@ -144,7 +137,7 @@ server <- function(input, output, session) {
             selectInput(
               "filtro_grupo",
               "Grupo:",
-              choices = unique(datos$grupo),
+              choices = c("Todos", unique(datos$grupo)),
               multiple = TRUE
             )
 
@@ -152,69 +145,68 @@ server <- function(input, output, session) {
             selectInput(
               "filtro_region",
               "Región:",
-              choices = unique(datos$region),
+              choices = c("Todos", unique(datos$region)),
               multiple = TRUE
             )
           }
       ),
 
-      # ---- FILTRO SEXO ----
+      # ---- SEXO ----
       div(class = "filtro-box",
           selectInput(
             "filtro_sexo",
             "Sexo:",
-            choices = c("Hombre", "Mujer", "Ambos"),
-            selected = "Ambos",
-            multiple = TRUE  # AHORA MULTIPLE
+            choices = c("Todos", "Hombre", "Mujer"),
+            multiple = TRUE,
+            selected = "Todos"
           )
       ),
 
-      # ---- FILTRO EDAD ----
+      # ---- EDAD ----
       div(class = "filtro-box",
           selectInput(
             "filtro_edad",
             "Edad:",
-            choices = c("0-4", "5-14", "15-64", "65+"),
-            selected = c("15-64"),
-            multiple = TRUE  # AHORA MULTIPLE
+            choices = c("Todos", "0-4", "5-14", "15-64", "65+"),
+            multiple = TRUE,
+            selected = "Todos"
           )
       )
     )
   })
 
-
   # ================================
-  # DATOS FILTRADOS
+  # APLICACIÓN DE FILTROS
   # ================================
   datos_filtrados <- reactive({
 
     datos <- datos_reporte()
 
-    # Filtro principal según reporte
+    # ---- Filtro principal ----
     if (input$reporte == "Reporte A – Coberturas") {
-      req(input$filtro_cat)
-      datos <- datos %>% filter(categoria %in% input$filtro_cat)
+      if (!("Todos" %in% input$filtro_cat))
+        datos <- datos %>% filter(categoria %in% input$filtro_cat)
 
     } else if (input$reporte == "Reporte B – Influenza") {
-      req(input$filtro_grupo)
-      datos <- datos %>% filter(grupo %in% input$filtro_grupo)
+      if (!("Todos" %in% input$filtro_grupo))
+        datos <- datos %>% filter(grupo %in% input$filtro_grupo)
 
     } else {
-      req(input$filtro_region)
-      datos <- datos %>% filter(region %in% input$filtro_region)
+      if (!("Todos" %in% input$filtro_region))
+        datos <- datos %>% filter(region %in% input$filtro_region)
     }
 
-    # ---- Filtro de Sexo ----
-    if (!is.null(input$filtro_sexo) && !"Ambos" %in% input$filtro_sexo) {
+    # ---- Filtro sexo ----
+    if (!("Todos" %in% input$filtro_sexo)) {
       datos <- datos %>% filter(sexo %in% input$filtro_sexo)
     }
 
-    # ---- Filtro de Edad ----
-    if (!is.null(input$filtro_edad)) {
+    # ---- Filtro edad ----
+    if (!("Todos" %in% input$filtro_edad)) {
       datos <- datos %>% filter(edad %in% input$filtro_edad)
     }
 
-    return(datos)
+    datos
   })
 
   # ================================
