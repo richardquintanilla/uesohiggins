@@ -65,7 +65,7 @@ ui <- fluidPage(
       width = 2,
       div(class = "sidebar-custom",
 
-          img(src = "logo_blanco_ues.png", class = "sidebar-logo"),
+          img(src = "logo_ues_azul_marino.png", class = "sidebar-logo"),
 
           selectInput(
             "reporte",
@@ -247,3 +247,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
