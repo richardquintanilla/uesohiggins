@@ -7,66 +7,115 @@ library(ggplot2)
 # ================================
 # CONFIGURACIÓN DE COLORES
 # ================================
-color_titulo <- "#005CA9"
-color_sidebar <- "#F0F4F7"
-color_borde <- "#D0D7DD"
+color_titulo   <- "#002447"   # barra superior
+color_sidebar  <- "#003366"   # sidebar
+color_tabs     <- "#003366"   # fondo pestañas
+color_tab_act  <- "#002447"   # pestaña activa
+
 
 # ================================
 # UI
 # ================================
 ui <- fluidPage(
 
-  # ---- ESTILOS CSS ----
+  # ================================
+  # CSS GLOBAL
+  # ================================
   tags$head(
     tags$style(HTML(sprintf("
+
+      /* -------------------------------
+         BARRA SUPERIOR
+      --------------------------------*/
       .titulo-banner {
         background-color: %s;
         padding: 18px;
         color: white;
-        font-size: 26px;
+        font-size: 28px;
         font-weight: bold;
+        text-align: center;
+        margin-bottom: 8px;
       }
 
+      /* -------------------------------
+         SIDEBAR
+      --------------------------------*/
       .sidebar-custom {
         background-color: %s;
-        padding: 20px;
-        border-right: 2px solid %s;
         height: 100vh;
+        color: white;
+        padding: 15px;
+        border-right: 2px solid #001b33;
+        position: relative;
       }
 
       .sidebar-logo {
-        width: 140px;   /* <- TAMAÑO FIJO */
-        margin-bottom: 20px;
+        width: 120px;
+        margin: 0 auto;
+        display: block;
       }
 
-      .fecha-reporte {
-        margin-top: 15px;
-        font-size: 13px;
-        color: #555;
+      /* Logo abajo centrado */
+      .logo-bottom {
+        position: absolute;
+        bottom: 15px;
+        width: 100%%;
+        text-align: center;
       }
 
-      .filtro-box {
+      /* -------------------------------
+         PESTAÑAS
+      --------------------------------*/
+      .nav-tabs {
+        background-color: %s;
+        border-bottom: 2px solid %s;
+      }
+
+      .nav-tabs > li > a {
+        color: white !important;
+        font-weight: bold;
+      }
+
+      .nav-tabs > li > a:hover {
+        background-color: %s !important;
+        color: #fff !important;
+      }
+
+      .nav-tabs > li.active > a {
+        background-color: %s !important;
+        color: white !important;
+        border: none !important;
+      }
+
+      /* -------------------------------
+         FILTROS HORIZONTALES
+      --------------------------------*/
+      .filtros-inline .form-group {
         display: inline-block;
         margin-right: 20px;
-        vertical-align: top;
       }
 
-    ", color_titulo, color_sidebar, color_borde)))
+    ", color_titulo, color_sidebar, color_tabs, color_tab_act,
+       color_tab_act, color_tab_act
+    )))
   ),
 
-  # ---- BANNER SUPERIOR ----
+  # ================================
+  # BARRA SUPERIOR
+  # ================================
   div(class = "titulo-banner", "UES O'Higgins – Reportes"),
 
-  # ---- LAYOUT PRINCIPAL ----
   fluidRow(
 
-    # -------- SIDEBAR --------
+    # ================================
+    # SIDEBAR IZQUIERDO
+    # ================================
     column(
       width = 2,
+
       div(class = "sidebar-custom",
 
-          img(src = "logo_ues_azul_marino.png", class = "sidebar-logo"),
-
+          # ---- Selector de reporte ----
           selectInput(
             "reporte",
             "Seleccione un reporte:",
@@ -77,32 +126,45 @@ ui <- fluidPage(
             )
           ),
 
-          div(class = "fecha-reporte",
+          # ---- Fecha ----
+          div(style = "margin-top: 15px; font-size: 13px;",
               paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
+          ),
+
+          # ---- LOGO ABAJO ----
+          div(class = "logo-bottom",
+              img(src = "logo_blanco_ues.png", class = "sidebar-logo")
           )
       )
     ),
 
-    # -------- CONTENIDO --------
+    # ================================
+    # CONTENIDO PRINCIPAL
+    # ================================
     column(
       width = 10,
 
-      uiOutput("filtros"),
+      # ---- FILTROS SUPERIORES ----
+      div(class = "filtros-inline",
+          uiOutput("filtros")
+      ),
 
+      # ---- PESTAÑAS ----
       tabsetPanel(
-        tabPanel("Tabla", tableOutput("tabla")),
-        tabPanel("Gráfico", plotlyOutput("grafico"))
+        tabPanel("Tabla", br(), tableOutput("tabla")),
+        tabPanel("Gráfico", br(), plotlyOutput("grafico"))
       )
     )
   )
 )
+
 
 # ================================
 # SERVER
 # ================================
 server <- function(input, output, session) {
 
-  # ---- CARGA REACTIVA DE DATOS ----
+  # CARGA LOS DATOS SEGÚN REPORTE
   datos_reporte <- reactive({
 
     if (input$reporte == "Reporte A – Coberturas") {
@@ -116,97 +178,66 @@ server <- function(input, output, session) {
     }
   })
 
-  # ---- FILTROS ----
+  # ================================
+  # FILTROS DINÁMICOS
+  # ================================
   output$filtros <- renderUI({
 
     datos <- datos_reporte()
 
-    fluidRow(
-
-      # ---- FILTRO PRINCIPAL ----
-      div(class = "filtro-box",
-          if (input$reporte == "Reporte A – Coberturas") {
-            selectInput(
-              "filtro_cat",
-              "Categoría:",
-              choices = c("Todos", unique(datos$categoria)),
-              multiple = TRUE,
-              selected = "Todos"
-            )
-
-          } else if (input$reporte == "Reporte B – Influenza") {
-            selectInput(
-              "filtro_grupo",
-              "Grupo:",
-              choices = c("Todos", unique(datos$grupo)),
-              multiple = TRUE,
-              selected = "Todos"
-            )
-
-          } else {
-            selectInput(
-              "filtro_region",
-              "Región:",
-              choices = c("Todos", unique(datos$region)),
-              multiple = TRUE,
-              selected = "Todos"
-            )
-          }
-      ),
-
-      # ---- SEXO ----
-      div(class = "filtro-box",
-          selectInput(
-            "filtro_sexo",
-            "Sexo:",
-            choices = c("Todos", "Hombre", "Mujer"),
-            multiple = TRUE,
-            selected = "Todos"
-          )
-      ),
-
-      # ---- EDAD ----
-      div(class = "filtro-box",
-          selectInput(
-            "filtro_edad",
-            "Edad:",
-            choices = c("Todos", "0-4", "5-14", "15-64", "65+"),
-            multiple = TRUE,
-            selected = "Todos"
-          )
+    if (input$reporte == "Reporte A – Coberturas") {
+      tagList(
+        selectInput(
+          "filtro_categoria",
+          "Categoría:",
+          choices = c("Todos", unique(datos$categoria)),
+          selected = "Todos",
+          multiple = TRUE
+        )
       )
-    )
+
+    } else if (input$reporte == "Reporte B – Influenza") {
+      tagList(
+        selectInput(
+          "filtro_grupo",
+          "Grupo:",
+          choices = c("Todos", unique(datos$grupo)),
+          selected = "Todos",
+          multiple = TRUE
+        )
+      )
+
+    } else {
+      tagList(
+        selectInput(
+          "filtro_region",
+          "Región:",
+          choices = c("Todos", unique(datos$region)),
+          selected = "Todos",
+          multiple = TRUE
+        )
+      )
+    }
   })
 
   # ================================
-  # APLICACIÓN DE FILTROS
+  # DATOS FILTRADOS
   # ================================
   datos_filtrados <- reactive({
 
     datos <- datos_reporte()
 
-    # ---- Filtro principal ----
     if (input$reporte == "Reporte A – Coberturas") {
-      if (!("Todos" %in% input$filtro_cat))
-        datos <- datos %>% filter(categoria %in% input$filtro_cat)
+      if (!"Todos" %in% input$filtro_categoria)
+        datos <- datos %>% filter(categoria %in% input$filtro_categoria)
 
     } else if (input$reporte == "Reporte B – Influenza") {
-      if (!("Todos" %in% input$filtro_grupo))
+      if (!"Todos" %in% input$filtro_grupo)
         datos <- datos %>% filter(grupo %in% input$filtro_grupo)
 
     } else {
-      if (!("Todos" %in% input$filtro_region))
+      if (!"Todos" %in% input$filtro_region)
         datos <- datos %>% filter(region %in% input$filtro_region)
-    }
-
-    # ---- Filtro sexo ----
-    if (!("Todos" %in% input$filtro_sexo)) {
-      datos <- datos %>% filter(sexo %in% input$filtro_sexo)
-    }
-
-    # ---- Filtro edad ----
-    if (!("Todos" %in% input$filtro_edad)) {
-      datos <- datos %>% filter(edad %in% input$filtro_edad)
     }
 
     datos
@@ -250,5 +281,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
-
