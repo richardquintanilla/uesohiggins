@@ -4,6 +4,27 @@ library(readr)
 library(plotly)
 library(ggplot2)
 
+# ---------------------------
+# Función para extraer fecha desde archivo
+# Formato: DDMMYY_loquesea.csv
+# ---------------------------
+extraer_fecha <- function(nombre_archivo) {
+  fecha_str <- substr(nombre_archivo, 1, 6)
+  tryCatch(
+    as.Date(fecha_str, format = "%d%m%y"),
+    error = function(e) NA
+  )
+}
+
+# Ejemplos (TÚ luego los modificarás)
+archivos_coberturas <- c("251120_coberturas.csv")
+archivos_influenza  <- c("251119_influenza.csv")
+archivos_agentes    <- c("251118_agentes.csv")
+
+fecha_coberturas <- max(sapply(archivos_coberturas, extraer_fecha), na.rm = TRUE)
+fecha_influenza  <- max(sapply(archivos_influenza,  extraer_fecha), na.rm = TRUE)
+fecha_agentes    <- max(sapply(archivos_agentes,    extraer_fecha), na.rm = TRUE)
+
 # ================================
 # COLORES
 # ================================
@@ -97,8 +118,9 @@ ui <- fluidPage(
           ),
 
           div(id = "fecha_texto",
-              style = "margin-top:20px; font-size:14px;",
-              paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
+              style = "margin-top:20px; font-size:14px; color:white;",
+              span("Fecha del reporte: "),
+              textOutput("fecha_actualizacion", inline = TRUE)
           )
       )
     ),
@@ -148,6 +170,19 @@ server <- function(input, output, session) {
   })
 
   # ----------------------------
+  # FECHA DINÁMICA DEL REPORTE
+  # ----------------------------
+  output$fecha_actualizacion <- renderText({
+    fecha <- switch(input$reporte,
+                    "Reporte A – Coberturas" = fecha_coberturas,
+                    "Reporte B – Influenza"  = fecha_influenza,
+                    "Reporte C – Agentes Etiológicos" = fecha_agentes,
+                    NA)
+    if (is.na(fecha)) return("N/A")
+    format(as.Date(fecha), "%d-%m-%Y")
+  })
+
+  # ----------------------------
   # FILTROS DINÁMICOS (siempre 2)
   # ----------------------------
   output$filtros_ui <- renderUI({
@@ -160,7 +195,6 @@ server <- function(input, output, session) {
     tagList(
       div(class = "filtros-inline",
 
-          # Filtro principal (siempre existe)
           selectInput(
             "filtro_main",
             "Filtro principal:",
@@ -170,7 +204,6 @@ server <- function(input, output, session) {
             width = "250px"
           ),
 
-          # Filtro numérico adicional (siempre existe)
           sliderInput(
             "filtro_rango",
             label = paste("Filtrar", var_num, "(mín–máx):"),
@@ -194,11 +227,9 @@ server <- function(input, output, session) {
     var_main <- ds_info$var_main
     var_num <- ds_info$var_num
 
-    # Filtro 1
     if (!"Todos" %in% input$filtro_main)
       df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
 
-    # Filtro 2 (rango)
     df <- df %>% filter(.data[[var_num]] >= input$filtro_rango[1],
                         .data[[var_num]] <= input$filtro_rango[2])
 
