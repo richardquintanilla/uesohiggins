@@ -12,6 +12,7 @@ COLOR_TAB_ACTIVA <- "#EEE9E9"
 COLOR_TAB_INACTIVA <- "#f5f5f5"
 COLOR_BORDE_TAB <- "white"
 
+
 # ================================
 # UI
 # ================================
@@ -20,25 +21,22 @@ ui <- fluidPage(
   # ---- CSS GENERAL ----
   tags$head(
     tags$style(HTML(sprintf("
-      /* Barra superior */
       .titulo-banner {
-        background-color: %s !important;
+        background-color: %s;
         padding: 18px;
-        color: white !important;
+        color: white;
         font-size: 26px;
         font-weight: bold;
         text-align: center;
       }
 
-      /* Sidebar */
       .sidebar-custom {
-        background-color: %s !important;
+        background-color: %s;
         padding: 20px;
         height: 100vh;
-        color: white !important;
+        color: white;
       }
 
-      /* Logo */
       .sidebar-logo {
         width: 120px;
         display: block;
@@ -47,24 +45,22 @@ ui <- fluidPage(
         margin-bottom: 20px;
       }
 
-      /* Filtros horizontales */
       .filtros-inline > * {
         display: inline-block;
         margin-right: 20px;
       }
 
-      /* Tabs */
       .nav-tabs > li > a {
         background-color: %s !important;
-        border: 1px solid %s !important;
+        border-color: %s !important;
         color: black !important;
       }
 
       .nav-tabs > li.active > a {
         background-color: %s !important;
         color: black !important;
-        border: 1px solid %s !important;
-        font-weight: bold !important;
+        border-color: %s !important;
+        font-weight: bold;
       }
     ",
     COLOR_BARRA,
@@ -81,7 +77,9 @@ ui <- fluidPage(
 
   fluidRow(
 
-    # ==== SIDEBAR IZQUIERDA ====
+    # ======================
+    # SIDEBAR IZQUIERDA
+    # ======================
     column(
       width = 2,
       div(class = "sidebar-custom",
@@ -99,13 +97,15 @@ ui <- fluidPage(
           ),
 
           div(id = "fecha_texto",
-              style = "margin-top:20px; font-size:14px; color:white;",
+              style = "margin-top:20px; font-size:14px;",
               paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
           )
       )
     ),
 
-    # ==== CONTENIDO PRINCIPAL ====
+    # ======================
+    # CONTENIDO PRINCIPAL
+    # ======================
     column(
       width = 10,
 
@@ -126,107 +126,81 @@ ui <- fluidPage(
 # ================================
 server <- function(input, output, session) {
 
-  # ACTUALIZAR FECHA DINÁMICAMENTE
-  observeEvent(input$reporte, {
-    updateText <- paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
-    insertUI("#fecha_texto", where = "afterEnd", ui = NULL)
-    removeUI(selector = "#fecha_texto", multiple = TRUE)
-    insertUI(
-      selector = ".sidebar-custom",
-      where = "beforeEnd",
-      ui = div(id = "fecha_texto",
-               style = "margin-top:20px; font-size:14px; color:white;",
-               updateText)
-    )
-  })
-
   # ----------------------------
-  # CARGA DE DATOS REACTIVA
+  # CARGA DE DATOS SEGÚN REPORTE
   # ----------------------------
   get_dataset <- reactive({
 
     if (input$reporte == "Reporte A – Coberturas") {
       df <- read_csv("data/coberturas.csv")
-      list(df = df, var_main = "categoria")
+      list(df = df, var_main = "categoria", var_num = "y")
     }
 
     else if (input$reporte == "Reporte B – Influenza") {
       df <- read_csv("data/influenza.csv")
-      list(df = df, var_main = "grupo")
+      list(df = df, var_main = "grupo", var_num = "valor")
     }
 
     else {
       df <- read_csv("data/agentes.csv")
-      list(df = df, var_main = "region")
+      list(df = df, var_main = "region", var_num = "y")
     }
   })
 
   # ----------------------------
-  # FILTROS DINÁMICOS
+  # FILTROS DINÁMICOS (siempre 2)
   # ----------------------------
   output$filtros_ui <- renderUI({
-    ds <- get_dataset()$df
-    var_main <- get_dataset()$var_main
 
-    if (is.null(ds)) return(NULL)
+    ds_info <- get_dataset()
+    df <- ds_info$df
+    var_main <- ds_info$var_main
+    var_num <- ds_info$var_num
 
-    filtros <- tagList(
-      selectInput(
-        "filtro_main",
-        "Filtro principal:",
-        choices = c("Todos", sort(unique(ds[[var_main]]))),
-        selected = "Todos",
-        multiple = TRUE,
-        width = "250px"
+    tagList(
+      div(class = "filtros-inline",
+
+          # Filtro principal (siempre existe)
+          selectInput(
+            "filtro_main",
+            "Filtro principal:",
+            choices = c("Todos", sort(unique(df[[var_main]]))),
+            selected = "Todos",
+            multiple = TRUE,
+            width = "250px"
+          ),
+
+          # Filtro numérico adicional (siempre existe)
+          sliderInput(
+            "filtro_rango",
+            label = paste("Filtrar", var_num, "(mín–máx):"),
+            min = min(df[[var_num]], na.rm = TRUE),
+            max = max(df[[var_num]], na.rm = TRUE),
+            value = c(min(df[[var_num]], na.rm = TRUE),
+                      max(df[[var_num]], na.rm = TRUE)),
+            width = "350px"
+          )
       )
     )
-
-    if ("sexo" %in% names(ds)) {
-      filtros <- tagList(
-        filtros,
-        selectInput(
-          "filtro_sexo",
-          "Sexo:",
-          choices = c("Todos", sort(unique(ds$sexo))),
-          selected = "Todos",
-          multiple = TRUE
-        )
-      )
-    }
-
-    if ("edad" %in% names(ds)) {
-      filtros <- tagList(
-        filtros,
-        selectInput(
-          "filtro_edad",
-          "Edad:",
-          choices = c("Todos", sort(unique(ds$edad))),
-          selected = "Todos",
-          multiple = TRUE
-        )
-      )
-    }
-
-    div(class = "filtros-inline", filtros)
   })
 
   # ----------------------------
   # APLICAR FILTROS
   # ----------------------------
   datos_filtrados <- reactive({
-    ds <- get_dataset()$df
-    var_main <- get_dataset()$var_main
 
-    df <- ds
+    ds_info <- get_dataset()
+    df <- ds_info$df
+    var_main <- ds_info$var_main
+    var_num <- ds_info$var_num
 
+    # Filtro 1
     if (!"Todos" %in% input$filtro_main)
       df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
 
-    if (!is.null(input$filtro_sexo) && !"Todos" %in% input$filtro_sexo)
-      df <- df %>% filter(sexo %in% input$filtro_sexo)
-
-    if (!is.null(input$filtro_edad) && !"Todos" %in% input$filtro_edad)
-      df <- df %>% filter(edad %in% input$filtro_edad)
+    # Filtro 2 (rango)
+    df <- df %>% filter(.data[[var_num]] >= input$filtro_rango[1],
+                        .data[[var_num]] <= input$filtro_rango[2])
 
     df
   })
@@ -242,25 +216,23 @@ server <- function(input, output, session) {
   # GRÁFICO
   # ----------------------------
   output$grafico <- renderPlotly({
+
     df <- datos_filtrados()
+    ds_info <- get_dataset()
 
     if (input$reporte == "Reporte B – Influenza") {
 
-      if (!inherits(df$fecha, "Date"))
-        df$fecha <- as.Date(df$fecha)
+      df$fecha <- as.Date(df$fecha)
 
       p <- ggplot(df, aes(x = fecha, y = valor, color = grupo)) +
-        geom_line() + geom_point() + theme_minimal()
-
-    } else if (input$reporte == "Reporte C – Agentes Etiológicos") {
-
-      p <- ggplot(df, aes(x = x, y = y, fill = region)) +
-        geom_col() + theme_minimal()
+        geom_line() + geom_point() +
+        theme_minimal()
 
     } else {
 
-      p <- ggplot(df, aes(x = categoria, y = y)) +
-        geom_col(fill = "#1f77b4") + theme_minimal()
+      p <- ggplot(df, aes_string(x = ds_info$var_main, y = ds_info$var_num)) +
+        geom_col(fill = "#1f77b4") +
+        theme_minimal()
     }
 
     ggplotly(p)
