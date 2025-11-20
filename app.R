@@ -7,17 +7,17 @@ library(ggplot2)
 # ================================
 # CONFIGURACIÓN DE COLORES
 # ================================
-color_titulo   <- "#002447"   # barra superior
-color_sidebar  <- "#003366"   # sidebar
-color_tabs     <- "#003366"   # fondo pestañas
-color_tab_act  <- "#002447"   # pestaña activa
+color_titulo   <- "#191970"   # barra superior
+color_sidebar  <- "#191970"   # sidebar
+color_tabs     <- "#191970"   # fondo pestañas
+color_tab_act  <- "#EEE9E9"   # pestaña activa
 
 
 # ================================
 # UI
 # ================================
 ui <- fluidPage(
-
+  
   # ================================
   # CSS GLOBAL
   # ================================
@@ -96,25 +96,25 @@ ui <- fluidPage(
       }
 
     ", color_titulo, color_sidebar, color_tabs, color_tab_act,
-       color_tab_act, color_tab_act
+                            color_tab_act, color_tab_act
     )))
   ),
-
+  
   # ================================
   # BARRA SUPERIOR
   # ================================
   div(class = "titulo-banner", "UES O'Higgins – Reportes"),
-
+  
   fluidRow(
-
+    
     # ================================
     # SIDEBAR IZQUIERDO
     # ================================
     column(
       width = 2,
-
+      
       div(class = "sidebar-custom",
-
+          
           # ---- Selector de reporte ----
           selectInput(
             "reporte",
@@ -125,30 +125,30 @@ ui <- fluidPage(
               "Reporte C – Agentes Etiológicos"
             )
           ),
-
+          
           # ---- Fecha ----
           div(style = "margin-top: 15px; font-size: 13px;",
               paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
           ),
-
+          
           # ---- LOGO ABAJO ----
           div(class = "logo-bottom",
               img(src = "logo_blanco_ues.png", class = "sidebar-logo")
           )
       )
     ),
-
+    
     # ================================
     # CONTENIDO PRINCIPAL
     # ================================
     column(
       width = 10,
-
+      
       # ---- FILTROS SUPERIORES ----
       div(class = "filtros-inline",
           uiOutput("filtros")
       ),
-
+      
       # ---- PESTAÑAS ----
       tabsetPanel(
         tabPanel("Tabla", br(), tableOutput("tabla")),
@@ -163,28 +163,28 @@ ui <- fluidPage(
 # SERVER
 # ================================
 server <- function(input, output, session) {
-
+  
   # CARGA LOS DATOS SEGÚN REPORTE
   datos_reporte <- reactive({
-
+    
     if (input$reporte == "Reporte A – Coberturas") {
       read_csv("data/coberturas.csv")
-
+      
     } else if (input$reporte == "Reporte B – Influenza") {
       read_csv("data/influenza.csv")
-
+      
     } else {
       read_csv("data/agentes.csv")
     }
   })
-
+  
   # ================================
   # FILTROS DINÁMICOS
   # ================================
   output$filtros <- renderUI({
-
+    
     datos <- datos_reporte()
-
+    
     if (input$reporte == "Reporte A – Coberturas") {
       tagList(
         selectInput(
@@ -195,7 +195,7 @@ server <- function(input, output, session) {
           multiple = TRUE
         )
       )
-
+      
     } else if (input$reporte == "Reporte B – Influenza") {
       tagList(
         selectInput(
@@ -206,7 +206,7 @@ server <- function(input, output, session) {
           multiple = TRUE
         )
       )
-
+      
     } else {
       tagList(
         selectInput(
@@ -219,65 +219,66 @@ server <- function(input, output, session) {
       )
     }
   })
-
+  
   # ================================
   # DATOS FILTRADOS
   # ================================
   datos_filtrados <- reactive({
-
+    
     datos <- datos_reporte()
-
+    
     if (input$reporte == "Reporte A – Coberturas") {
       if (!"Todos" %in% input$filtro_categoria)
         datos <- datos %>% filter(categoria %in% input$filtro_categoria)
-
+      
     } else if (input$reporte == "Reporte B – Influenza") {
       if (!"Todos" %in% input$filtro_grupo)
         datos <- datos %>% filter(grupo %in% input$filtro_grupo)
-
+      
     } else {
       if (!"Todos" %in% input$filtro_region)
         datos <- datos %>% filter(region %in% input$filtro_region)
     }
-
+    
     datos
   })
-
+  
   # ================================
   # TABLA
   # ================================
   output$tabla <- renderTable({
     datos_filtrados()
   })
-
+  
   # ================================
   # GRÁFICO
   # ================================
   output$grafico <- renderPlotly({
-
+    
     datos <- datos_filtrados()
-
+    
     if (input$reporte == "Reporte A – Coberturas") {
-
+      
       p <- ggplot(datos, aes(x = categoria, y = y)) +
-        geom_col(fill = "#1f77b4") +
+        geom_col() +
         theme_minimal()
-
+      
     } else if (input$reporte == "Reporte B – Influenza") {
-
+      
       p <- ggplot(datos, aes(x = fecha, y = valor)) +
-        geom_line(color = "#d62728") +
+        geom_line() +
         theme_minimal()
-
+      
     } else {
-
+      
       p <- ggplot(datos, aes(x = x, y = y, fill = region)) +
         geom_col() +
         theme_minimal()
     }
-
+    
     ggplotly(p)
   })
 }
 
 shinyApp(ui, server)
+
