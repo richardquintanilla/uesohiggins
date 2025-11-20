@@ -1,210 +1,270 @@
-# app.R
 library(shiny)
 library(dplyr)
 library(readr)
-library(ggplot2)
 library(plotly)
-library(DT)
+library(ggplot2)
 
-# ---------------------------
-# CARGA DE DATOS (UNA VEZ)
-# ---------------------------
-coberturas <- tryCatch(read_csv("data/coberturas.csv"), error = function(e) NULL)
-influenza  <- tryCatch(read_csv("data/influenza.csv"), error = function(e) NULL)
-agentes    <- tryCatch(read_csv("data/agentes.csv"), error = function(e) NULL)
+# ================================
+# COLORES
+# ================================
+COLOR_BARRA <- "#191970"
+COLOR_TAB_ACTIVA <- "#EEE9E9"
+COLOR_TAB_INACTIVA <- "#f5f5f5"
+COLOR_BORDE_TAB <- "white"
 
-# ---------------------------
+
+# ================================
 # UI
-# ---------------------------
+# ================================
 ui <- fluidPage(
+
+  # ---- CSS GENERAL ----
   tags$head(
-    # CSS embebido - garantiza que se aplique sin depender de archivos externos
-    tags$style(HTML("
-      /* Title banner */
-      .title-banner { background:#191970; color:white; padding:12px 10px; font-size:22px; font-weight:700; text-align:center; margin-bottom:8px; }
+    tags$style(HTML(sprintf("
+      /* Barra superior */
+      .titulo-banner {
+        background-color: %s;
+        padding: 18px;
+        color: white;
+        font-size: 26px;
+        font-weight: bold;
+        text-align: center;
+      }
 
-      /* Layout: sidebar */
-      .my-sidebar { background:#191970; color:white; padding:15px; height:100vh; }
-      .my-sidebar .shiny-input-container label { color: white !important; }
-      .logo-top { display:block; margin: 0 auto 12px auto; max-width:160px; }
+      /* Sidebar */
+      .sidebar-custom {
+        background-color: %s;
+        padding: 20px;
+        height: 100vh;
+        color: white;
+      }
 
-      /* Tabs: background, active/inactive */
-      .nav-tabs { background-color:#191970; border-bottom:1px solid #ffffff; }
-      .nav-tabs > li > a { color: white !important; font-weight:600; }
-      .nav-tabs > li > a:hover { background-color:#101830 !important; color: white !important; }
-      .nav-tabs > li.active > a,
-      .nav-tabs > li.active > a:focus,
-      .nav-tabs > li.active > a:hover {
-        background-color:#EEE9E9 !important;
+      /* Logo */
+      .sidebar-logo {
+        width: 120px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        margin-bottom: 20px;
+      }
+
+      /* Filtros horizontales */
+      .filtros-inline > * {
+        display: inline-block;
+        margin-right: 20px;
+      }
+
+      /* Tabs */
+      .nav-tabs > li > a {
+        background-color: %s !important;
+        border-color: %s !important;
         color: black !important;
-        border: 1px solid #ffffff !important;
       }
 
-      /* inline filters */
-      .filtros-inline .form-group { display:inline-block; margin-right:16px; vertical-align: middle; }
-      /* small screens adjustments */
-      @media (max-width: 768px) {
-        .filtros-inline .form-group { display:block; margin-bottom:8px; }
-        .my-sidebar { height:auto; }
+      .nav-tabs > li.active > a {
+        background-color: %s !important;
+        color: black !important;
+        border-color: %s !important;
+        font-weight: bold;
       }
-    "))
+    ",
+    COLOR_BARRA,
+    COLOR_BARRA,
+    COLOR_TAB_INACTIVA,
+    COLOR_BORDE_TAB,
+    COLOR_TAB_ACTIVA,
+    COLOR_BORDE_TAB
+    )))
   ),
 
-  div(class = "title-banner", "UES O'Higgins – Reportes"),
+  # ---- BARRA SUPERIOR ----
+  div(class = "titulo-banner", "UES O'Higgins – Reportes"),
 
-  # Layout principal
   fluidRow(
+
+    # ======================
+    # SIDEBAR IZQUIERDA
+    # ======================
     column(
-      width = 3,
-      div(class = "my-sidebar",
-          # logo (archivo debe estar en /www/logo_blanco_ues.png)
-          img(src = "logo_blanco_ues.png", class = "logo-top", alt = "logo"),
-          br(),
-          selectInput("reporte", "Seleccione reporte:",
-                      choices = c("Reporte A – Coberturas", "Reporte B – Influenza", "Reporte C – Agentes Etiológicos"),
-                      selected = "Reporte A – Coberturas"),
-          br(),
-          # fecha (dinámica)
-          uiOutput("fecha_reporte_ui")
+      width = 2,
+      div(class = "sidebar-custom",
+
+          img(src = "logo_blanco_ues.png", class = "sidebar-logo"),
+
+          selectInput(
+            "reporte",
+            "Seleccione un reporte:",
+            choices = c(
+              "Reporte A – Coberturas",
+              "Reporte B – Influenza",
+              "Reporte C – Agentes Etiológicos"
+            )
+          ),
+
+          div(id = "fecha_texto",
+              style = "margin-top:20px; font-size:14px;",
+              paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
+          )
       )
     ),
 
+    # ======================
+    # CONTENIDO PRINCIPAL
+    # ======================
     column(
-      width = 9,
-      # filtros horizontales
-      div(class = "filtros-inline", uiOutput("filtros_ui")),
+      width = 10,
+
+      uiOutput("filtros_ui"),
       br(),
+
       tabsetPanel(
-        tabPanel("Tabla", br(), DTOutput("tabla_dt")),
-        tabPanel("Gráfico", br(), plotlyOutput("grafico", height = "600px"))
+        id = "tabs",
+        tabPanel("Tabla", tableOutput("tabla")),
+        tabPanel("Gráfico", plotlyOutput("grafico"))
       )
     )
   )
 )
 
-# ---------------------------
+# ================================
 # SERVER
-# ---------------------------
+# ================================
 server <- function(input, output, session) {
 
-  # Encuentra dataset según reporte seleccionado
+  # ----------------------------
+  # CARGA DE DATOS REACTIVA
+  # ----------------------------
   get_dataset <- reactive({
-    switch(input$reporte,
-           "Reporte A – Coberturas" = list(df = coberturas, path = "data/coberturas.csv"),
-           "Reporte B – Influenza"  = list(df = influenza,  path = "data/influenza.csv"),
-           "Reporte C – Agentes Etiológicos" = list(df = agentes, path = "data/agentes.csv")
-    )
-  })
 
-  # Fecha dinámica: muestra mtime del archivo si existe, si no usa Sys.time()
-  output$fecha_reporte_ui <- renderUI({
-    ds <- get_dataset()
-    p <- ds$path
-    if (!is.null(p) && file.exists(p)) {
-      fm <- file.info(p)$mtime
-      div(style = "color:white; font-size:13px;", paste0("Fecha del reporte: ", format(fm, "%d-%m-%Y %H:%M")))
-    } else {
-      div(style = "color:white; font-size:13px;", paste0("Fecha del reporte: ", format(Sys.time(), "%d-%m-%Y %H:%M")))
+    if (input$reporte == "Reporte A – Coberturas") {
+      df <- read_csv("data/coberturas.csv")
+      list(df = df, var_main = "categoria")
+    }
+
+    else if (input$reporte == "Reporte B – Influenza") {
+      df <- read_csv("data/influenza.csv")
+      list(df = df, var_main = "grupo")
+    }
+
+    else {
+      df <- read_csv("data/agentes.csv")
+      list(df = df, var_main = "region")
     }
   })
 
-  # Generar filtros dinámicos (todos con "Todos" arriba, multiple = TRUE)
+  # ----------------------------
+  # FILTROS DINÁMICOS
+  # ----------------------------
   output$filtros_ui <- renderUI({
     ds <- get_dataset()$df
+    var_main <- get_dataset()$var_main
+
     if (is.null(ds)) return(NULL)
 
-    # main choices según reporte
-    main_choices <- switch(input$reporte,
-                           "Reporte A – Coberturas" = if ("categoria" %in% names(ds)) c("Todos", sort(unique(ds$categoria))) else c("Todos"),
-                           "Reporte B – Influenza"  = if ("grupo" %in% names(ds)) c("Todos", sort(unique(ds$grupo))) else c("Todos"),
-                           "Reporte C – Agentes Etiológicos" = if ("region" %in% names(ds)) c("Todos", sort(unique(ds$region))) else c("Todos")
+    filtros <- tagList(
+      selectInput(
+        "filtro_main",
+        "Filtro principal:",
+        choices = c("Todos", sort(unique(ds[[var_main]]))),
+        selected = "Todos",
+        multiple = TRUE,
+        width = "250px"
+      )
     )
 
-    main_input <- selectInput("filtro_main", "Filtro principal:",
-                              choices = main_choices, selected = "Todos", multiple = TRUE)
-
-    # sexo
     if ("sexo" %in% names(ds)) {
-      sexo_choices <- c("Todos", sort(unique(ds$sexo)))
-      sexo_input <- selectInput("filtro_sexo", "Sexo:", choices = sexo_choices, selected = "Todos", multiple = TRUE)
-    } else {
-      sexo_input <- NULL
-    }
-
-    # edad
-    if ("edad" %in% names(ds)) {
-      edad_choices <- c("Todos", sort(unique(ds$edad)))
-      edad_input <- selectInput("filtro_edad", "Edad:", choices = edad_choices, selected = "Todos", multiple = TRUE)
-    } else {
-      edad_input <- NULL
-    }
-
-    tagList(main_input, sexo_input, edad_input)
-  })
-
-  # Filtrado con comportamiento "Todos" = sin filtro
-  datos_filtrados <- reactive({
-    ds <- get_dataset()$df
-    req(ds)
-
-    # main filter
-    mv <- input$filtro_main
-    if (!is.null(mv) && !"Todos" %in% mv) {
-      ds <- switch(input$reporte,
-                   "Reporte A – Coberturas" = { if ("categoria" %in% names(ds)) ds %>% filter(categoria %in% mv) else ds },
-                   "Reporte B – Influenza"  = { if ("grupo" %in% names(ds)) ds %>% filter(grupo %in% mv) else ds },
-                   "Reporte C – Agentes Etiológicos" = { if ("region" %in% names(ds)) ds %>% filter(region %in% mv) else ds }
+      filtros <- tagList(
+        filtros,
+        selectInput(
+          "filtro_sexo",
+          "Sexo:",
+          choices = c("Todos", sort(unique(ds$sexo))),
+          selected = "Todos",
+          multiple = TRUE
+        )
       )
     }
 
-    # sexo
-    sx <- input$filtro_sexo
-    if (!is.null(sx) && !"Todos" %in% sx && "sexo" %in% names(ds)) {
-      ds <- ds %>% filter(sexo %in% sx)
+    if ("edad" %in% names(ds)) {
+      filtros <- tagList(
+        filtros,
+        selectInput(
+          "filtro_edad",
+          "Edad:",
+          choices = c("Todos", sort(unique(ds$edad))),
+          selected = "Todos",
+          multiple = TRUE
+        )
+      )
     }
 
-    # edad
-    ed <- input$filtro_edad
-    if (!is.null(ed) && !"Todos" %in% ed && "edad" %in% names(ds)) {
-      ds <- ds %>% filter(edad %in% ed)
-    }
-
-    ds
+    div(class = "filtros-inline", filtros)
   })
 
-  # Tabla: DT server=TRUE
-  output$tabla_dt <- renderDT({
-    df <- datos_filtrados()
-    req(df)
-    datatable(df, options = list(pageLength = 25), rownames = FALSE)
-  }, server = TRUE)
+  # ----------------------------
+  # APLICAR FILTROS
+  # ----------------------------
+  datos_filtrados <- reactive({
+    ds <- get_dataset()$df
+    var_main <- get_dataset()$var_main
 
-  # Grafico: ggplot + ggplotly
+    df <- ds
+
+    if (!"Todos" %in% input$filtro_main)
+      df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
+
+    if (!is.null(input$filtro_sexo) && !"Todos" %in% input$filtro_sexo)
+      df <- df %>% filter(sexo %in% input$filtro_sexo)
+
+    if (!is.null(input$filtro_edad) && !"Todos" %in% input$filtro_edad)
+      df <- df %>% filter(edad %in% input$filtro_edad)
+
+    df
+  })
+
+  # ----------------------------
+  # TABLA
+  # ----------------------------
+  output$tabla <- renderTable({
+    datos_filtrados()
+  })
+
+  # ----------------------------
+  # GRÁFICO
+  # ----------------------------
   output$grafico <- renderPlotly({
     df <- datos_filtrados()
-    req(df)
 
-    p <- switch(input$reporte,
-                "Reporte A – Coberturas" = {
-                  if (!all(c("categoria","y") %in% names(df))) return(NULL)
-                  ggplot(df, aes(x = categoria, y = y)) + geom_col(fill="#1f77b4") + theme_minimal()
-                },
-                "Reporte B – Influenza" = {
-                  if (!all(c("fecha","valor") %in% names(df))) return(NULL)
-                  if (!inherits(df$fecha, "Date")) df$fecha <- as.Date(df$fecha)
-                  ggplot(df, aes(x = fecha, y = valor, color = if("grupo" %in% names(df)) grupo else NULL, group = if("grupo" %in% names(df)) grupo else 1)) +
-                    geom_line() + geom_point() + theme_minimal()
-                },
-                "Reporte C – Agentes Etiológicos" = {
-                  if (!all(c("x","y") %in% names(df))) return(NULL)
-                  ggplot(df, aes(x = x, y = y, fill = if("region" %in% names(df)) region else NULL)) + geom_col() + theme_minimal()
-                }
-    )
+    if (input$reporte == "Reporte B – Influenza") {
 
-    if (is.null(p)) return(NULL)
-    ggplotly(p, tooltip = "all")
+      if (!inherits(df$fecha, "Date"))
+        df$fecha <- as.Date(df$fecha)
+
+      if ("grupo" %in% names(df))
+        p <- ggplot(df, aes(x = fecha, y = valor, color = grupo)) +
+          geom_line() + geom_point() + theme_minimal()
+      else
+        p <- ggplot(df, aes(x = fecha, y = valor)) +
+          geom_line(color = "#1f77b4") + geom_point(color = "#1f77b4") +
+          theme_minimal()
+
+    } else if (input$reporte == "Reporte C – Agentes Etiológicos") {
+
+      if ("region" %in% names(df))
+        p <- ggplot(df, aes(x = x, y = y, fill = region)) +
+          geom_col() + theme_minimal()
+      else
+        p <- ggplot(df, aes(x = x, y = y)) +
+          geom_col(fill = "#1f77b4") + theme_minimal()
+
+    } else {
+
+      p <- ggplot(df, aes(x = categoria, y = y)) +
+        geom_col(fill = "#1f77b4") + theme_minimal()
+    }
+
+    ggplotly(p)
   })
-
 }
 
 shinyApp(ui, server)
