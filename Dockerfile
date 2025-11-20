@@ -10,8 +10,10 @@ WORKDIR /app
 
 COPY app.R /app/
 COPY data /app/data
+COPY www /app/www
 
 ENV PORT=3838
 EXPOSE 3838
 
 CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT')))"]
+
