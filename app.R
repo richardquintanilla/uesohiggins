@@ -6,7 +6,7 @@ library(ggplot2)
 
 # ---------------------------
 # Función para extraer fecha desde archivo
-# Formato: DDMMYY_loquesea.csv
+# Formato: AAMMDD_loquesea.csv
 # ---------------------------
 extraer_fecha <- function(nombre_archivo) {
   fecha_str <- substr(nombre_archivo, 1, 6)
@@ -16,14 +16,30 @@ extraer_fecha <- function(nombre_archivo) {
   )
 }
 
-# Ejemplos (TÚ luego los modificarás)
-archivos_coberturas <- c("251120_coberturas.csv")
-archivos_influenza  <- c("251119_influenza.csv")
-archivos_agentes    <- c("251118_agentes.csv")
+# ============================================================
+# DETECTAR AUTOMÁTICAMENTE EL ARCHIVO MÁS RECIENTE POR REPORTE
+# ============================================================
 
-fecha_coberturas <- max(sapply(archivos_coberturas, extraer_fecha), na.rm = TRUE)
-fecha_influenza  <- max(sapply(archivos_influenza,  extraer_fecha), na.rm = TRUE)
-fecha_agentes    <- max(sapply(archivos_agentes,    extraer_fecha), na.rm = TRUE)
+# Función que retorna el archivo más reciente que coincide con un patrón
+archivo_mas_reciente <- function(patron) {
+  archivos <- list.files("data", pattern = patron, full.names = FALSE)
+
+  if (length(archivos) == 0) return(NA)
+
+  fechas <- extraer_fecha(archivos)
+  archivos[which.max(fechas)]
+}
+
+# Detectar archivos más recientes según sufijo
+archivo_coberturas <- archivo_mas_reciente("_coberturas\\.csv$")
+archivo_influenza  <- archivo_mas_reciente("_influenza\\.csv$")
+archivo_agentes    <- archivo_mas_reciente("_agentes\\.csv$")
+
+# Obtener fechas reales desde el nombre
+fecha_coberturas <- if (!is.na(archivo_coberturas)) extraer_fecha(archivo_coberturas) else NA
+fecha_influenza  <- if (!is.na(archivo_influenza))  extraer_fecha(archivo_influenza)  else NA
+fecha_agentes    <- if (!is.na(archivo_agentes))    extraer_fecha(archivo_agentes)    else NA
+
 
 # ================================
 # COLORES
@@ -154,17 +170,17 @@ server <- function(input, output, session) {
   get_dataset <- reactive({
 
     if (input$reporte == "Reporte A – Coberturas") {
-      df <- read_csv("data/coberturas.csv")
+      df <- read_csv(file.path("data", "coberturas.csv"))
       list(df = df, var_main = "categoria", var_num = "y")
     }
 
     else if (input$reporte == "Reporte B – Influenza") {
-      df <- read_csv("data/influenza.csv")
+      df <- read_csv(file.path("data", "influenza.csv"))
       list(df = df, var_main = "grupo", var_num = "valor")
     }
 
     else {
-      df <- read_csv("data/agentes.csv")
+      df <- read_csv(file.path("data", "agentes.csv"))
       list(df = df, var_main = "region", var_num = "y")
     }
   })
@@ -183,7 +199,7 @@ server <- function(input, output, session) {
   })
 
   # ----------------------------
-  # FILTROS DINÁMICOS (siempre 2)
+  # FILTROS DINÁMICOS (2 filtros)
   # ----------------------------
   output$filtros_ui <- renderUI({
 
