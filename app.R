@@ -11,7 +11,7 @@ library(ggplot2)
 extraer_fecha <- function(nombre_archivo) {
   fecha_str <- substr(nombre_archivo, 1, 6)
   tryCatch(
-    as.Date(fecha_str, format = "%d%m%y"),
+    as.Date(fecha_str, format = "%y%m%d"),
     error = function(e) NA
   )
 }
@@ -287,3 +287,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
