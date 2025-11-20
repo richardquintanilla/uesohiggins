@@ -7,8 +7,8 @@ library(ggplot2)
 # ================================
 # CONFIGURACIÓN DE COLORES
 # ================================
-color_titulo <- "#005CA9"    # azul institucional
-color_sidebar <- "#F0F4F7"   # gris claro
+color_titulo <- "#005CA9"    
+color_sidebar <- "#F0F4F7"   
 color_borde <- "#D0D7DD"
 
 # ================================
@@ -19,7 +19,6 @@ ui <- fluidPage(
   # ---- ESTILOS CSS ----
   tags$head(
     tags$style(HTML(sprintf("
-      /* Banda superior */
       .titulo-banner {
         background-color: %s;
         padding: 18px;
@@ -28,7 +27,6 @@ ui <- fluidPage(
         font-weight: bold;
       }
 
-      /* Sidebar */
       .sidebar-custom {
         background-color: %s;
         padding: 20px;
@@ -60,9 +58,8 @@ ui <- fluidPage(
       width = 2,
       div(class = "sidebar-custom",
 
-          # Logo (opcional)
-          img(src = "https://upload.wikimedia.org/wikipedia/commons/6/6b/Logo_Ministerio_de_Salud_de_Chile.png",
-              class = "sidebar-logo"),
+          # Logo cargado desde carpeta /www
+          img(src = "logo_minsal.png", class = "sidebar-logo"),
 
           # Selector de reporte
           selectInput(
@@ -75,7 +72,6 @@ ui <- fluidPage(
             )
           ),
 
-          # Fecha del reporte
           div(class = "fecha-reporte",
               paste("Fecha del reporte:", format(Sys.Date(), "%d-%m-%Y"))
           )
@@ -86,7 +82,7 @@ ui <- fluidPage(
     column(
       width = 10,
 
-      # ---- FILTRO SUPERIOR ----
+      # ---- FILTROS SUPERIORES DINÁMICOS ----
       uiOutput("filtros"),
 
       # ---- PESTAÑAS ----
@@ -107,72 +103,116 @@ server <- function(input, output, session) {
   datos_reporte <- reactive({
 
     if (input$reporte == "Reporte A – Coberturas") {
-      read_csv("data/coberturas.csv") %>%
-        rename(
-          categoria = categoria,
-          x = x,
-          y = y
-        )
+      read_csv("data/coberturas.csv")
 
     } else if (input$reporte == "Reporte B – Influenza") {
-      read_csv("data/influenza.csv") %>%
-        rename(
-          fecha = fecha,
-          valor = valor,
-          grupo = grupo
-        )
+      read_csv("data/influenza.csv")
 
     } else {
-      read_csv("data/agentes.csv") %>%
-        rename(
-          x = x,
-          y = y,
-          region = region
-        )
+      read_csv("data/agentes.csv")
     }
   })
 
-  # ---- FILTROS DINÁMICOS ----
+
+  # ============================================================
+  #  NUEVO: FILTROS DINÁMICOS + SEXO + EDAD + SELECCIÓN MÚLTIPLE
+  # ============================================================
   output$filtros <- renderUI({
 
     datos <- datos_reporte()
 
+    filtros_base <- list()
+
+    # ---- Filtro dinámico según reporte ----
     if (input$reporte == "Reporte A – Coberturas") {
-      selectInput("filtro_cat", "Categoría:", choices = unique(datos$categoria))
+
+      filtros_base[[1]] <- selectInput(
+        "filtro_cat",
+        "Categoría:",
+        choices = unique(datos$categoria),
+        multiple = TRUE      # <<--- ahora es múltiple
+      )
 
     } else if (input$reporte == "Reporte B – Influenza") {
-      selectInput("filtro_grupo", "Grupo:", choices = unique(datos$grupo))
+
+      filtros_base[[1]] <- selectInput(
+        "filtro_grupo",
+        "Grupo:",
+        choices = unique(datos$grupo),
+        multiple = TRUE
+      )
 
     } else {
-      selectInput("filtro_region", "Región:", choices = unique(datos$region))
+
+      filtros_base[[1]] <- selectInput(
+        "filtro_region",
+        "Región:",
+        choices = unique(datos$region),
+        multiple = TRUE
+      )
     }
+
+    # ---- NUEVOS: Sexo y Edad ----
+    filtros_base[[2]] <- selectInput(
+      "filtro_sexo",
+      "Sexo:",
+      choices = c("Ambos", "Hombre", "Mujer"),
+      selected = "Ambos"
+    )
+
+    filtros_base[[3]] <- selectInput(
+      "filtro_edad",
+      "Edad:",
+      choices = c("0-4", "5-14", "15-64", "65+"),
+      selected = "15-64"
+    )
+
+    return(filtros_base)
   })
 
-  # ---- DATOS FILTRADOS ----
+
+  # ================================
+  # DATOS FILTRADOS
+  # ================================
   datos_filtrados <- reactive({
 
     datos <- datos_reporte()
 
+    # Filtro dinámico por reporte
     if (input$reporte == "Reporte A – Coberturas") {
       req(input$filtro_cat)
-      datos %>% filter(categoria == input$filtro_cat)
+      datos <- datos %>% filter(categoria %in% input$filtro_cat)
 
     } else if (input$reporte == "Reporte B – Influenza") {
       req(input$filtro_grupo)
-      datos %>% filter(grupo == input$filtro_grupo)
+      datos <- datos %>% filter(grupo %in% input$filtro_grupo)
 
     } else {
       req(input$filtro_region)
-      datos %>% filter(region == input$filtro_region)
+      datos <- datos %>% filter(region %in% input$filtro_region)
     }
+
+    # Filtro SEXO
+    if (input$filtro_sexo != "Ambos") {
+      datos <- datos %>% filter(sexo == input$filtro_sexo)
+    }
+
+    # Filtro EDAD
+    datos <- datos %>% filter(edad == input$filtro_edad)
+
+    return(datos)
   })
 
-  # ---- TABLA ----
+  # ================================
+  # TABLA
+  # ================================
   output$tabla <- renderTable({
     datos_filtrados()
   })
 
-  # ---- GRÁFICO ----
+  # ================================
+  # GRÁFICO
+  # ================================
   output$grafico <- renderPlotly({
 
     datos <- datos_filtrados()
