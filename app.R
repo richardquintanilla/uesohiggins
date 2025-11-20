@@ -7,10 +7,10 @@ library(ggplot2)
 # ================================
 # CONFIGURACIÓN DE COLORES
 # ================================
-color_titulo   <- "#002447"   # barra superior
-color_sidebar  <- "#003366"   # sidebar
-color_tabs     <- "#003366"   # tabs inactivas
-color_tab_act  <- "#FFFFFF"   # pestaña activa (texto negro ahora)
+color_titulo   <- "#191970"   # barra superior
+color_sidebar  <- "#191970"   # sidebar
+color_tabs     <- "#191970"   # fondo pestañas
+color_tab_act  <- "#EEE9E9"   # pestaña activa
 
 
 # ================================
@@ -281,3 +281,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
