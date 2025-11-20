@@ -7,8 +7,8 @@ library(ggplot2)
 # ================================
 # CONFIGURACIÓN DE COLORES
 # ================================
-color_titulo <- "#005CA9"    
-color_sidebar <- "#F0F4F7"   
+color_titulo <- "#005CA9"
+color_sidebar <- "#F0F4F7"
 color_borde <- "#D0D7DD"
 
 # ================================
@@ -44,6 +44,14 @@ ui <- fluidPage(
         font-size: 13px;
         color: #555;
       }
+
+      /* Filtros horizontales */
+      .filtro-box {
+        display: inline-block;
+        margin-right: 20px;
+        vertical-align: top;
+      }
+
     ", color_titulo, color_sidebar, color_borde)))
   ),
 
@@ -53,12 +61,12 @@ ui <- fluidPage(
   # ---- LAYOUT PRINCIPAL ----
   fluidRow(
 
-    # --------- SIDEBAR IZQUIERDO ---------
+    # -------- SIDEBAR --------
     column(
       width = 2,
       div(class = "sidebar-custom",
 
-          # Logo cargado desde carpeta /www
+          # Logo desde /www
           img(src = "logo_blanco_ues.png", class = "sidebar-logo"),
 
           # Selector de reporte
@@ -78,14 +86,13 @@ ui <- fluidPage(
       )
     ),
 
-    # --------- CONTENIDO PRINCIPAL ---------
+    # -------- CONTENIDO --------
     column(
       width = 10,
 
-      # ---- FILTROS SUPERIORES DINÁMICOS ----
+      # FILTROS HORIZONTALES
       uiOutput("filtros"),
 
-      # ---- PESTAÑAS ----
       tabsetPanel(
         tabPanel("Tabla", tableOutput("tabla")),
         tabPanel("Gráfico", plotlyOutput("grafico"))
@@ -114,60 +121,65 @@ server <- function(input, output, session) {
   })
 
 
-  # ============================================================
-  #  NUEVO: FILTROS DINÁMICOS + SEXO + EDAD + SELECCIÓN MÚLTIPLE
-  # ============================================================
+  # ==========================================
+  # FILTROS DINÁMICOS + MULTIPLE + HORIZONTALES
+  # ==========================================
   output$filtros <- renderUI({
 
     datos <- datos_reporte()
 
-    filtros_base <- list()
+    fluidRow(
 
-    # ---- Filtro dinámico según reporte ----
-    if (input$reporte == "Reporte A – Coberturas") {
+      # ---- FILTRO PRINCIPAL ----
+      div(class = "filtro-box",
+          if (input$reporte == "Reporte A – Coberturas") {
+            selectInput(
+              "filtro_cat",
+              "Categoría:",
+              choices = unique(datos$categoria),
+              multiple = TRUE
+            )
 
-      filtros_base[[1]] <- selectInput(
-        "filtro_cat",
-        "Categoría:",
-        choices = unique(datos$categoria),
-        multiple = TRUE      # <<--- ahora es múltiple
+          } else if (input$reporte == "Reporte B – Influenza") {
+            selectInput(
+              "filtro_grupo",
+              "Grupo:",
+              choices = unique(datos$grupo),
+              multiple = TRUE
+            )
+
+          } else {
+            selectInput(
+              "filtro_region",
+              "Región:",
+              choices = unique(datos$region),
+              multiple = TRUE
+            )
+          }
+      ),
+
+      # ---- FILTRO SEXO ----
+      div(class = "filtro-box",
+          selectInput(
+            "filtro_sexo",
+            "Sexo:",
+            choices = c("Hombre", "Mujer", "Ambos"),
+            selected = "Ambos",
+            multiple = TRUE  # AHORA MULTIPLE
+          )
+      ),
+
+      # ---- FILTRO EDAD ----
+      div(class = "filtro-box",
+          selectInput(
+            "filtro_edad",
+            "Edad:",
+            choices = c("0-4", "5-14", "15-64", "65+"),
+            selected = c("15-64"),
+            multiple = TRUE  # AHORA MULTIPLE
+          )
       )
-
-    } else if (input$reporte == "Reporte B – Influenza") {
-
-      filtros_base[[1]] <- selectInput(
-        "filtro_grupo",
-        "Grupo:",
-        choices = unique(datos$grupo),
-        multiple = TRUE
-      )
-
-    } else {
-
-      filtros_base[[1]] <- selectInput(
-        "filtro_region",
-        "Región:",
-        choices = unique(datos$region),
-        multiple = TRUE
-      )
-    }
-
-    # ---- NUEVOS: Sexo y Edad ----
-    filtros_base[[2]] <- selectInput(
-      "filtro_sexo",
-      "Sexo:",
-      choices = c("Ambos", "Hombre", "Mujer"),
-      selected = "Ambos"
     )
-
-    filtros_base[[3]] <- selectInput(
-      "filtro_edad",
-      "Edad:",
-      choices = c("0-4", "5-14", "15-64", "65+"),
-      selected = "15-64"
-    )
-
-    return(filtros_base)
   })
 
 
@@ -178,7 +190,7 @@ server <- function(input, output, session) {
 
     datos <- datos_reporte()
 
-    # Filtro dinámico por reporte
+    # Filtro principal según reporte
     if (input$reporte == "Reporte A – Coberturas") {
       req(input$filtro_cat)
       datos <- datos %>% filter(categoria %in% input$filtro_cat)
@@ -192,13 +204,15 @@ server <- function(input, output, session) {
       datos <- datos %>% filter(region %in% input$filtro_region)
     }
 
-    # Filtro SEXO
-    if (input$filtro_sexo != "Ambos") {
-      datos <- datos %>% filter(sexo == input$filtro_sexo)
+    # ---- Filtro de Sexo ----
+    if (!is.null(input$filtro_sexo) && !"Ambos" %in% input$filtro_sexo) {
+      datos <- datos %>% filter(sexo %in% input$filtro_sexo)
     }
 
-    # Filtro EDAD
-    datos <- datos %>% filter(edad == input$filtro_edad)
+    # ---- Filtro de Edad ----
+    if (!is.null(input$filtro_edad)) {
+      datos <- datos %>% filter(edad %in% input$filtro_edad)
+    }
 
     return(datos)
   })
@@ -241,4 +255,3 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
-
