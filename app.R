@@ -130,7 +130,8 @@ server <- function(input, output, session) {
               "filtro_cat",
               "Categoría:",
               choices = c("Todos", unique(datos$categoria)),
-              multiple = TRUE
+              multiple = TRUE,
+              selected = "Todos"
             )
 
           } else if (input$reporte == "Reporte B – Influenza") {
@@ -138,7 +139,8 @@ server <- function(input, output, session) {
               "filtro_grupo",
               "Grupo:",
               choices = c("Todos", unique(datos$grupo)),
-              multiple = TRUE
+              multiple = TRUE,
+              selected = "Todos"
             )
 
           } else {
@@ -146,7 +148,8 @@ server <- function(input, output, session) {
               "filtro_region",
               "Región:",
               choices = c("Todos", unique(datos$region)),
-              multiple = TRUE
+              multiple = TRUE,
+              selected = "Todos"
             )
           }
       ),
@@ -247,4 +250,5 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
 
