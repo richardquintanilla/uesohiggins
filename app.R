@@ -122,8 +122,22 @@ ui <- fluidPage(
       .sidebar-custom .control-label {
         display: block;
         width: 100%%;
-        text-align: left;
+        text-align: center;
       }
+      
+      /* Quitar estos 3 para centrar lo de la seleccion multiple */
+      /* Alinear texto de las opciones del selectize a la izquierda */
+        .selectize-dropdown .selectize-dropdown-content div {
+        text-align: left !important;
+      }
+        .selectize-control .item {
+        text-align: left !important;
+      }
+        .selectize-input {
+        text-align: left !important;
+      }
+
+
 
       /* Logo */
       .sidebar-logo {
@@ -138,6 +152,7 @@ ui <- fluidPage(
       .filtros-inline > div {
         display: inline-block;
         margin-right: 20px;
+        margin-top: 15px;
         vertical-align: top;
       }
 
@@ -157,70 +172,70 @@ ui <- fluidPage(
       /* Tabla responsiva */
       .table-responsive { overflow-x: auto; }
     ",
-    COLOR_BARRA, COLOR_BARRA,
-    COLOR_TAB_INACTIVA, COLOR_BORDE_TAB,
-    COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
+COLOR_BARRA, COLOR_BARRA,
+COLOR_TAB_INACTIVA, COLOR_BORDE_TAB,
+COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
     )))
   ),
 
-  # -----------------------
-  # Barra superior (título)
-  # -----------------------
-  div(class = "titulo-banner", "UES O'Higgins – Reportes"),
+# -----------------------
+# Barra superior (título)
+# -----------------------
+div(class = "titulo-banner", "UES O'Higgins – Reportes"),
 
-  # -----------------------
-  # Layout principal: sidebar (col 2) + contenido (col 10)
-  # -----------------------
-  fluidRow(
-    # Sidebar
-    column(
-      width = 2,
-      div(class = "sidebar-custom",
-          # Logo (archivo en /www/logo_ues_blanco.png)
-          img(src = "logo_ues_blanco.png", class = "sidebar-logo"),
-
-          # Selector de reporte (NO cambiar)
-          selectInput(
-            inputId = "reporte",
-            label = "Seleccione un reporte:",
-            choices = c(
-              "Reporte A – Coberturas",
-              "Reporte B – Influenza",
-              "Reporte C – Agentes Etiológicos"
-            )
-          ),
-
-          # Fecha dinámica del reporte (renderText en server)
-          div(id = "fecha_texto",
-              style = "margin-top:20px; font-size:14px; color:white;",
-              span("Fecha del reporte: "),
-              textOutput("fecha_actualizacion", inline = TRUE)
+# -----------------------
+# Layout principal: sidebar (col 2) + contenido (col 10)
+# -----------------------
+fluidRow(
+  # Sidebar
+  column(
+    width = 2,
+    div(class = "sidebar-custom",
+        # Logo (archivo en /www/logo_ues_blanco.png)
+        img(src = "logo_ues_blanco.png", class = "sidebar-logo"),
+        
+        # Selector de reporte (NO cambiar)
+        selectInput(
+          inputId = "reporte",
+          label = "Seleccione un reporte:",
+          choices = c(
+            "Reporte A – Coberturas",
+            "Reporte B – Influenza",
+            "Reporte C – Agentes Etiológicos"
           )
-      )
-    ),
-
-    # Contenido principal
-    column(
-      width = 10,
-      # Aquí van los filtros dinámicos horizontales
-      uiOutput("filtros_ui"),
-      br(),
-
-      # Pestañas principal: Tabla y Gráfico
-      tabsetPanel(
-        id = "tabs",
-        tabPanel("Tabla", tableOutput("tabla")),
-        tabPanel("Gráfico", plotlyOutput("grafico"))
-      )
+        ),
+        
+        # Fecha dinámica del reporte (renderText en server)
+        div(id = "fecha_texto",
+            style = "margin-top:20px; font-size:14px; color:white;",
+            span("Fecha del reporte: "),
+            textOutput("fecha_actualizacion", inline = TRUE)
+        )
+    )
+  ),
+  
+  # Contenido principal
+  column(
+    width = 10,
+    # Aquí van los filtros dinámicos horizontales
+    uiOutput("filtros_ui"),
+    br(),
+    
+    # Pestañas principal: Tabla y Gráfico
+    tabsetPanel(
+      id = "tabs",
+      tabPanel("Tabla", tableOutput("tabla")),
+      tabPanel("Gráfico", plotlyOutput("grafico"))
     )
   )
+)
 )
 
 # ================================
 # SERVER
 # ================================
 server <- function(input, output, session) {
-
+  
   # ----------------------------
   # Fecha dinámica que se muestra en sidebar
   # ----------------------------
@@ -232,7 +247,7 @@ server <- function(input, output, session) {
                     "N/A")
     fecha
   })
-
+  
   # ----------------------------
   # Función reactiva que devuelve dataset ya cargado y metadatos
   # (NO lee archivos repetidamente)
@@ -253,7 +268,7 @@ server <- function(input, output, session) {
       list(df = age_df, var_main = "region", var_num = "y")
     }
   })
-
+  
   # ----------------------------
   # Filtros horizontales - UI dinámico
   # - Usamos selectizeInput con opciones JS para insertar botones dentro del dropdown
@@ -263,12 +278,12 @@ server <- function(input, output, session) {
     df <- ds_info$df
     var_main <- ds_info$var_main
     var_num <- ds_info$var_num
-
+    
     # Si df está vacío o la columna principal no existe -> mostrar filtro vacío (evitar errores)
     main_vals <- if (nrow(df) == 0 || !(var_main %in% names(df))) character(0) else sort(unique(df[[var_main]]))
     sexo_vals <- if (nrow(df) == 0 || !("sexo" %in% names(df))) character(0) else sort(unique(df$sexo))
     edad_vals <- if (nrow(df) == 0 || !("edad" %in% names(df))) character(0) else sort(unique(df$edad))
-
+    
     # Función local para crear un selectize con botones dentro
     make_selectize <- function(inputId, label, choices) {
       # Si no hay choices, crear un selectize vacío (maneja el caso de datasets vacíos)
@@ -280,7 +295,7 @@ server <- function(input, output, session) {
           )
         )
       }
-
+      
       # Construimos el selectize con un bloque JS en onInitialize que
       # inserta botones arriba del dropdown que permiten seleccionar/limpiar todo.
       selectizeInput(
@@ -314,14 +329,14 @@ server <- function(input, output, session) {
         )
       )
     }
-
+    
     # Construir filtros: siempre incluir filtro principal
     filtros <- tagList(
       div(class = "filtros-inline",
           make_selectize("filtro_main", "Filtro principal:", main_vals)
       )
     )
-
+    
     # Añadir filtro sexo si existe
     if (length(sexo_vals) > 0) {
       filtros <- tagList(
@@ -331,7 +346,7 @@ server <- function(input, output, session) {
         )
       )
     }
-
+    
     # Añadir filtro edad si existe
     if (length(edad_vals) > 0) {
       filtros <- tagList(
@@ -341,14 +356,14 @@ server <- function(input, output, session) {
         )
       )
     }
-
+    
     # Añadir slider numérico si aplica (var_num existe y es numérica)
     if (var_num %in% names(df) && is.numeric(df[[var_num]]) && nrow(df) > 0) {
       rng_min <- min(df[[var_num]], na.rm = TRUE)
       rng_max <- max(df[[var_num]], na.rm = TRUE)
       if (!is.finite(rng_min)) rng_min <- 0
       if (!is.finite(rng_max)) rng_max <- 1
-
+      
       filtros <- tagList(
         filtros,
         div(class = "filtros-inline",
@@ -368,11 +383,11 @@ server <- function(input, output, session) {
                  sliderInput("filtro_rango", label = NULL, min = 0, max = 1, value = c(0,1)))
       )
     }
-
+    
     # Retornar container con filtros en línea
     div(class = "filtros-inline", filtros)
   })
-
+  
   # ----------------------------
   # Aplicar filtros a los datos (reactivo)
   # - Si selección está vacía o NULL -> se interpreta como "todos" (no filtrar)
@@ -382,60 +397,60 @@ server <- function(input, output, session) {
     df <- ds_info$df
     var_main <- ds_info$var_main
     var_num <- ds_info$var_num
-
+    
     # Si df está vacío, retornar tal cual
     if (nrow(df) == 0) return(df)
-
+    
     # Filtro principal
     if (!is.null(input$filtro_main) && length(input$filtro_main) > 0) {
       df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
     }
-
+    
     # Filtro sexo
     if (!is.null(input$filtro_sexo) && length(input$filtro_sexo) > 0 && "sexo" %in% names(df)) {
       df <- df %>% filter(sexo %in% input$filtro_sexo)
     }
-
+    
     # Filtro edad
     if (!is.null(input$filtro_edad) && length(input$filtro_edad) > 0 && "edad" %in% names(df)) {
       df <- df %>% filter(edad %in% input$filtro_edad)
     }
-
+    
     # Filtro rango numérico
     if (!is.null(input$filtro_rango) && var_num %in% names(df) && is.numeric(df[[var_num]])) {
       df <- df %>% filter(.data[[var_num]] >= input$filtro_rango[1],
                           .data[[var_num]] <= input$filtro_rango[2])
     }
-
+    
     df
   })
-
+  
   # ----------------------------
   # Render: Tabla
   # ----------------------------
   output$tabla <- renderTable({
     datos_filtrados()
   }, rownames = TRUE)
-
+  
   # ----------------------------
   # Render: Gráfico (ggplot + ggplotly)
   # ----------------------------
   output$grafico <- renderPlotly({
     df <- datos_filtrados()
     ds_info <- get_dataset()
-
+    
     # Si no hay datos -> gráfico vacío con mensaje
     if (nrow(df) == 0) {
       p <- ggplot() + theme_void() + ggtitle("No hay datos para mostrar")
       return(ggplotly(p))
     }
-
+    
     # Influenza: serie temporal
     if (input$reporte == "Reporte B – Influenza") {
       if ("fecha" %in% names(df) && !inherits(df$fecha, "Date")) {
         suppressWarnings(df$fecha <- as.Date(df$fecha))
       }
-
+      
       if ("grupo" %in% names(df)) {
         p <- ggplot(df, aes(x = fecha, y = valor, color = grupo)) +
           geom_line() + geom_point() + theme_minimal()
@@ -443,16 +458,16 @@ server <- function(input, output, session) {
         p <- ggplot(df, aes(x = fecha, y = valor)) +
           geom_line(color = "#cc0000") + geom_point(color = "#cc0000") + theme_minimal()
       }
-
-    # Agentes: barras por categoría/region
+      
+      # Agentes: barras por categoría/region
     } else if (input$reporte == "Reporte C – Agentes Etiológicos") {
       if ("region" %in% names(df)) {
         p <- ggplot(df, aes(x = x, y = y, fill = region)) + geom_col() + theme_minimal()
       } else {
         p <- ggplot(df, aes(x = x, y = y)) + geom_col(fill = "#1f77b4") + theme_minimal()
       }
-
-    # Coberturas: barras por categoria
+      
+      # Coberturas: barras por categoria
     } else {
       if ("categoria" %in% names(df)) {
         p <- ggplot(df, aes(x = categoria, y = y)) + geom_col(fill = "#1f77b4") + theme_minimal()
@@ -461,7 +476,7 @@ server <- function(input, output, session) {
         p <- ggplot(df, aes(x = x, y = y)) + geom_col(fill = "#1f77b4") + theme_minimal()
       }
     }
-
+    
     ggplotly(p)
   })
 }
@@ -470,5 +485,3 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
-
-
