@@ -122,6 +122,7 @@ ui <- fluidPage(
       .sidebar-custom .control-label {
         display: block;
         width: 100%%;
+        text-align: left;
       }
 
       /* Logo */
@@ -469,4 +470,5 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
