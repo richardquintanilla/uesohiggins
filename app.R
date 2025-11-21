@@ -41,21 +41,21 @@ info_age <- archivo_mas_reciente_info("_agentes.csv")
 if (!is.na(info_cob$archivo)) {
   cob_df <- read_csv(info_cob$archivo, show_col_types = FALSE)
 } else {
-  cob_df <- tibble(x = character(), y = numeric(), categoria = character())
+  cob_df <- tibble::tibble(x = character(), y = numeric(), categoria = character())
 }
 
 # Influenza: fecha, valor, grupo
 if (!is.na(info_inf$archivo)) {
   inf_df <- read_csv(info_inf$archivo, show_col_types = FALSE)
 } else {
-  inf_df <- tibble(fecha = character(), valor = numeric(), grupo = character())
+  inf_df <- tibble::tibble(fecha = character(), valor = numeric(), grupo = character())
 }
 
 # Agentes: x, y, region
 if (!is.na(info_age$archivo)) {
   age_df <- read_csv(info_age$archivo, show_col_types = FALSE)
 } else {
-  age_df <- tibble(x = character(), y = numeric(), region = character())
+  age_df <- tibble::tibble(x = character(), y = numeric(), region = character())
 }
 
 # Formatear fechas para mostrar en sidebar (DD-MM-YYYY) o "N/A"
@@ -86,6 +86,13 @@ ui <- fluidPage(
         padding: 20px;
         height: 100vh;
         color: white !important;
+        text-align: center;              /* centrar todo dentro del sidebar */
+      }
+
+      .sidebar-custom .control-label {
+        display: block;
+        width: 100%;
+        text-align: center;              /* centrar labels de inputs */
       }
 
       /* Logo */
@@ -94,7 +101,7 @@ ui <- fluidPage(
         display: block;
         margin-left: auto;
         margin-right: auto;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
       }
 
       /* Filtros horizontales */
@@ -205,52 +212,93 @@ server <- function(input, output, session) {
     }
   })
 
-  # FILTROS dinámicos con "Todos" por defecto y en horizontal
+  # FILTROS dinámicos con checkboxes y botones Select All / Deselect All
   output$filtros_ui <- renderUI({
     ds_info <- get_dataset()
     df <- ds_info$df
     var_main <- ds_info$var_main
     var_num <- ds_info$var_num
 
-    # choices seguros: si columna no existe o df vacío, mostrar "Todos"
-    main_choices <- if (nrow(df) == 0 || !(var_main %in% names(df))) {
-      "Todos"
-    } else {
-      c("Todos", sort(unique(df[[var_main]])))
-    }
+    # choices seguros: if column missing or empty -> empty vector
+    main_vals <- if (nrow(df) == 0 || !(var_main %in% names(df))) character(0) else sort(unique(df[[var_main]]))
+    sexo_vals <- if (nrow(df) == 0 || !("sexo" %in% names(df))) character(0) else sort(unique(df$sexo))
+    edad_vals <- if (nrow(df) == 0 || !("edad" %in% names(df))) character(0) else sort(unique(df$edad))
 
     filtros <- tagList(
-      selectInput(
-        "filtro_main",
-        "Filtro principal:",
-        choices = main_choices,
-        selected = "Todos",
-        multiple = TRUE,
-        width = "300px"
+      div(class = "filtros-inline",
+          # Main filter: buttons + checkbox group (default all selected)
+          tagList(
+            actionButton("select_all_main", "Seleccionar todo"),
+            actionButton("deselect_all_main", "Deseleccionar todo"),
+            br(),
+            checkboxGroupInput(
+              inputId = "filtro_main",
+              label = "Filtro principal:",
+              choices = main_vals,
+              selected = main_vals
+            )
+          )
       )
     )
 
-    # Añadir filtro numérico sólo si var_num existe y es numérico
+    # sexo filter (if exists)
+    if (length(sexo_vals) > 0) {
+      filtros <- tagList(
+        filtros,
+        div(class = "filtros-inline",
+            actionButton("select_all_sexo", "Seleccionar todo (sexo)"),
+            actionButton("deselect_all_sexo", "Deseleccionar todo (sexo)"),
+            br(),
+            checkboxGroupInput(
+              inputId = "filtro_sexo",
+              label = "Sexo:",
+              choices = sexo_vals,
+              selected = sexo_vals
+            )
+        )
+      )
+    }
+
+    # edad filter (if exists)
+    if (length(edad_vals) > 0) {
+      filtros <- tagList(
+        filtros,
+        div(class = "filtros-inline",
+            actionButton("select_all_edad", "Seleccionar todo (edad)"),
+            actionButton("deselect_all_edad", "Deseleccionar todo (edad)"),
+            br(),
+            checkboxGroupInput(
+              inputId = "filtro_edad",
+              label = "Edad:",
+              choices = edad_vals,
+              selected = edad_vals
+            )
+        )
+      )
+    }
+
+    # slider numeric (if applicable)
     if (var_num %in% names(df) && is.numeric(df[[var_num]]) && nrow(df) > 0) {
       rng_min <- min(df[[var_num]], na.rm = TRUE)
       rng_max <- max(df[[var_num]], na.rm = TRUE)
-      # si valores NA o infinitos, fallback
       if (!is.finite(rng_min)) rng_min <- 0
       if (!is.finite(rng_max)) rng_max <- 1
 
       filtros <- tagList(
         filtros,
-        sliderInput(
-          "filtro_rango",
-          label = paste("Filtrar", var_num, "(mín–máx):"),
-          min = rng_min,
-          max = rng_max,
-          value = c(rng_min, rng_max),
-          width = "350px"
+        div(class = "filtros-inline",
+            sliderInput(
+              "filtro_rango",
+              label = paste("Filtrar", var_num, "(mín–máx):"),
+              min = rng_min,
+              max = rng_max,
+              value = c(rng_min, rng_max),
+              width = "300px"
+            )
         )
       )
     } else {
-      # crear un input oculto para mantener la lógica y evitar errores
+      # hidden slider to keep logic consistent
       filtros <- tagList(
         filtros,
         tags$div(style = "display:none;",
@@ -261,7 +309,39 @@ server <- function(input, output, session) {
     div(class = "filtros-inline", filtros)
   })
 
-  # APLICAR FILTROS (con manejo de "Todos" y nulls)
+  # Observers for select/deselect buttons -> they update the corresponding checkboxGroup
+  observeEvent(input$select_all_main, {
+    ds_info <- get_dataset()
+    df <- ds_info$df
+    var_main <- ds_info$var_main
+    vals <- if (nrow(df) == 0 || !(var_main %in% names(df))) character(0) else sort(unique(df[[var_main]]))
+    updateCheckboxGroupInput(session, "filtro_main", selected = vals)
+  })
+  observeEvent(input$deselect_all_main, {
+    updateCheckboxGroupInput(session, "filtro_main", selected = character(0))
+  })
+
+  observeEvent(input$select_all_sexo, {
+    ds_info <- get_dataset()
+    df <- ds_info$df
+    vals <- if (nrow(df) == 0 || !("sexo" %in% names(df))) character(0) else sort(unique(df$sexo))
+    updateCheckboxGroupInput(session, "filtro_sexo", selected = vals)
+  })
+  observeEvent(input$deselect_all_sexo, {
+    updateCheckboxGroupInput(session, "filtro_sexo", selected = character(0))
+  })
+
+  observeEvent(input$select_all_edad, {
+    ds_info <- get_dataset()
+    df <- ds_info$df
+    vals <- if (nrow(df) == 0 || !("edad" %in% names(df))) character(0) else sort(unique(df$edad))
+    updateCheckboxGroupInput(session, "filtro_edad", selected = vals)
+  })
+  observeEvent(input$deselect_all_edad, {
+    updateCheckboxGroupInput(session, "filtro_edad", selected = character(0))
+  })
+
+  # APLICAR FILTROS (con manejo de empty selection => treat as all)
   datos_filtrados <- reactive({
     ds_info <- get_dataset()
     df <- ds_info$df
@@ -271,9 +351,19 @@ server <- function(input, output, session) {
     # si df vacío, retornar df tal cual para que la tabla muestre vacío
     if (nrow(df) == 0) return(df)
 
-    # filtro principal
-    if (!is.null(input$filtro_main) && !"Todos" %in% input$filtro_main) {
+    # filtro principal: if input$filtro_main is NULL or length 0 -> no filtering (all)
+    if (!is.null(input$filtro_main) && length(input$filtro_main) > 0) {
       df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
+    }
+
+    # filtro sexo
+    if (!is.null(input$filtro_sexo) && length(input$filtro_sexo) > 0 && "sexo" %in% names(df)) {
+      df <- df %>% filter(sexo %in% input$filtro_sexo)
+    }
+
+    # filtro edad
+    if (!is.null(input$filtro_edad) && length(input$filtro_edad) > 0 && "edad" %in% names(df)) {
+      df <- df %>% filter(edad %in% input$filtro_edad)
     }
 
     # filtro rango (si existe y es numérico)
