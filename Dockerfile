@@ -1,19 +1,20 @@
-FROM rocker/shiny:4.4.0
+FROM rocker/r-ver:4.4.0
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl-dev libcurl4-openssl-dev libxml2-dev libfontconfig1 \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y \
+    libssl-dev libcurl4-openssl-dev libxml2-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN R -e "install.packages(c('shiny','dplyr','readr','plotly','ggplot2', 'lubridate', 'shinyWidgets'), repos='https://cloud.r-project.org/')"
+RUN R -e "install.packages(c('shiny', 'tidyverse', 'ggplot2', 'readr', 'dplyr', 'plotly'))"
 
-WORKDIR /srv/shiny-server
+WORKDIR /app
 
-COPY . /srv/shiny-server/
+COPY app.R /app/
+COPY data /app/data
+COPY www /app/www
 
-RUN chown -R shiny:shiny /srv/shiny-server
-
+ENV PORT=3838
 EXPOSE 3838
 
-CMD ["/usr/bin/shiny-server"]
+CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT')))"]
 
 
