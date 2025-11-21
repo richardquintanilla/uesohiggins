@@ -91,7 +91,7 @@ ui <- fluidPage(
 
       .sidebar-custom .control-label {
         display: block;
-        width: 100%;
+        width: 100%%;
         text-align: center;              /* centrar labels de inputs */
       }
 
@@ -428,3 +428,4 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
