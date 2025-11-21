@@ -1,151 +1,86 @@
 library(shiny)
 library(dplyr)
 library(readr)
-library(plotly)
 library(ggplot2)
+library(plotly)
+library(stringr)
 
 # ============================================================
-# FUNCIONES
+#             FUNCION PARA IDENTIFICAR ARCHIVO MÁS RECIENTE
 # ============================================================
 
-# ---- Extrae fecha desde nombre con formato AAMMDD_XXXX.csv ----
-extraer_fecha <- function(nombre_archivo) {
-  fecha_str <- substr(nombre_archivo, 1, 6)  # AAMMDD
-  
-  # Convertir AAMMDD → "20AA-MM-DD"
-  suppressWarnings({
-    aa <- substr(fecha_str, 1, 2)
-    mm <- substr(fecha_str, 3, 4)
-    dd <- substr(fecha_str, 5, 6)
-    
-    # Año asumido 20AA
-    fecha_convertida <- paste0("20", aa, "-", mm, "-", dd)
-    as.Date(fecha_convertida)
-  })
-}
+extraer_info_archivo <- function(sufijo) {
 
-# ---- Buscar archivo más reciente según patrón ----
-archivo_mas_reciente <- function(patron) {
+  archivos <- list.files("data", pattern = paste0(sufijo, "$"), full.names = TRUE)
 
-  archivos <- list.files("data", pattern = patron, full.names = TRUE)
-  if (length(archivos) == 0) return(NA)
+  if (length(archivos) == 0) {
+    stop(paste("No se encontraron archivos con sufijo:", sufijo))
+  }
 
-  fechas <- sapply(basename(archivos), extraer_fecha)
+  # extraer AAMMDD
+  fechas_str <- str_extract(basename(archivos), "^[0-9]{6}")
+
+  # convertir AAMMDD → %y%m%d
+  fechas <- suppressWarnings(as.Date(fechas_str, format = "%y%m%d"))
+
   idx <- which.max(fechas)
 
   list(
     archivo = archivos[idx],
-    fecha = fechas[idx]
+    fecha   = fechas[idx]
   )
 }
 
 # ============================================================
-# CARGA AUTOMÁTICA DE ARCHIVOS (según tu carpeta GitHub)
+#      IDENTIFICAR ARCHIVOS RECIENTES (SOLO 1 VEZ)
 # ============================================================
 
-info_cob <- archivo_mas_reciente("_coberturas.csv")
-info_inf <- archivo_mas_reciente("_influenza.csv")
-info_age <- archivo_mas_reciente("_agentes.csv")
+info_cob <- extraer_info_archivo("_coberturas.csv")
+info_inf <- extraer_info_archivo("_influenza.csv")
+info_age <- extraer_info_archivo("_agentes.csv")
 
 # ============================================================
-# COLORES
+#   CARGAR LOS CSV UNA SOLA VEZ → MUCHÍSIMO MÁS RÁPIDO
 # ============================================================
-COLOR_BARRA <- "#191970"
-COLOR_TAB_ACTIVA <- "#EEE9E9"
-COLOR_TAB_INACTIVA <- "#f5f5f5"
-COLOR_BORDE_TAB <- "white"
+
+cob_df <- read_csv(info_cob$archivo, show_col_types = FALSE)
+inf_df <- read_csv(info_inf$archivo, show_col_types = FALSE)
+age_df <- read_csv(info_age$archivo, show_col_types = FALSE)
+
+# Fechas formateadas
+fecha_cob <- if (!is.na(info_cob$fecha)) format(info_cob$fecha, "%d-%m-%Y") else "N/A"
+fecha_inf <- if (!is.na(info_inf$fecha)) format(info_inf$fecha, "%d-%m-%Y") else "N/A"
+fecha_age <- if (!is.na(info_age$fecha)) format(info_age$fecha, "%d-%m-%Y") else "N/A"
+
 
 # ============================================================
-# UI (NO SE MODIFICA NADA)
+#                           UI
 # ============================================================
+
 ui <- fluidPage(
 
-  tags$head(
-    tags$style(HTML(sprintf("
-      .titulo-banner {
-        background-color: %s;
-        padding: 18px;
-        color: white;
-        font-size: 26px;
-        font-weight: bold;
-        text-align: center;
-      }
+  sidebarLayout(
+    sidebarPanel(
 
-      .sidebar-custom {
-        background-color: %s;
-        padding: 20px;
-        height: 100vh;
-        color: white;
-      }
+      div(
+        style = "text-align:center; margin-bottom:20px;",
+        tags$img(src = "logo_ues_blanco.png", width = "70%")
+      ),
 
-      .sidebar-logo {
-        width: 120px;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        margin-bottom: 20px;
-      }
+      selectInput(
+        "reporte",
+        "Seleccionar reporte:",
+        choices = c("Coberturas", "Influenza", "Agentes")
+      ),
 
-      .filtros-inline > * {
-        display: inline-block;
-        margin-right: 20px;
-      }
-
-      .nav-tabs > li > a {
-        background-color: %s !important;
-        border-color: %s !important;
-        color: black !important;
-      }
-
-      .nav-tabs > li.active > a {
-        background-color: %s !important;
-        color: black !important;
-        border-color: %s !important;
-        font-weight: bold;
-      }
-    ",
-    COLOR_BARRA, COLOR_BARRA,
-    COLOR_TAB_INACTIVA, COLOR_BORDE_TAB,
-    COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
-    )))
-  ),
-
-  div(class = "titulo-banner", "UES O'Higgins – Reportes"),
-
-  fluidRow(
-
-    column(
-      width = 2,
-      div(class = "sidebar-custom",
-
-          img(src = "logo_ues_blanco.png", class = "sidebar-logo"),
-
-          selectInput(
-            "reporte",
-            "Seleccione un reporte:",
-            choices = c(
-              "Reporte A – Coberturas",
-              "Reporte B – Influenza",
-              "Reporte C – Agentes Etiológicos"
-            )
-          ),
-
-          div(id = "fecha_texto",
-              style = "margin-top:20px; font-size:14px; color:white;",
-              span("Fecha del reporte: "),
-              textOutput("fecha_actualizacion", inline = TRUE)
-          )
-      )
+      uiOutput("filtros_dinamicos")
     ),
 
-    column(
-      width = 10,
-
-      uiOutput("filtros_ui"),
-      br(),
+    mainPanel(
+      h3(textOutput("titulo_reporte")),
+      h5(textOutput("fecha_reporte"), style = "color:gray; margin-top:-10px;"),
 
       tabsetPanel(
-        id = "tabs",
         tabPanel("Tabla", tableOutput("tabla")),
         tabPanel("Gráfico", plotlyOutput("grafico"))
       )
@@ -154,120 +89,138 @@ ui <- fluidPage(
 )
 
 # ============================================================
-# SERVER
+#                         SERVER
 # ============================================================
+
 server <- function(input, output, session) {
 
-  # ---- Carga dataset según reporte ----
-  get_dataset <- reactive({
+  # ------------------------------------------------------------
+  #                 FILTROS DINÁMICOS
+  # ------------------------------------------------------------
+  output$filtros_dinamicos <- renderUI({
 
-    if (input$reporte == "Reporte A – Coberturas") {
-      df <- read_csv(info_cob$archivo)
-      list(df = df, var_main = "categoria", var_num = "y")
-    }
-
-    else if (input$reporte == "Reporte B – Influenza") {
-      df <- read_csv(info_inf$archivo)
-      list(df = df, var_main = "grupo", var_num = "valor")
-    }
-
-    else {
-      df <- read_csv(info_age$archivo)
-      list(df = df, var_main = "region", var_num = "y")
-    }
-  })
-
-  # ---- Fecha dinámica ----
-  output$fecha_actualizacion <- renderText({
-
-    fecha <- switch(input$reporte,
-                    "Reporte A – Coberturas" = info_cob$fecha,
-                    "Reporte B – Influenza"  = info_inf$fecha,
-                    "Reporte C – Agentes Etiológicos" = info_age$fecha,
-                    NA)
-
-    if (is.na(fecha)) return("N/A")
-
-    format(fecha, "%d-%m-%Y")
-  })
-
-  # ---- Filtros dinámicos ----
-  output$filtros_ui <- renderUI({
-
-    ds_info <- get_dataset()
-    df <- ds_info$df
-    var_main <- ds_info$var_main
-    var_num <- ds_info$var_num
-
-    tagList(
-      div(class = "filtros-inline",
-
-          selectInput(
-            "filtro_main",
-            "Filtro principal:",
-            choices = c("Todos", sort(unique(df[[var_main]]))),
-            selected = "Todos",
-            multiple = TRUE,
-            width = "250px"
-          ),
-
-          sliderInput(
-            "filtro_rango",
-            label = paste("Filtrar", var_num, "(mín–máx):"),
-            min = min(df[[var_num]], na.rm = TRUE),
-            max = max(df[[var_num]], na.rm = TRUE),
-            value = c(min(df[[var_num]], na.rm = TRUE),
-                      max(df[[var_num]], na.rm = TRUE)),
-            width = "350px"
-          )
+    if (input$reporte == "Coberturas") {
+      return(
+        selectInput(
+          "categoria", "Categoría",
+          choices = c("Todos", sort(unique(cob_df$categoria))),
+          multiple = TRUE
+        )
       )
-    )
+    }
+
+    if (input$reporte == "Influenza") {
+      return(
+        selectInput(
+          "grupo", "Grupo",
+          choices = c("Todos", sort(unique(inf_df$grupo))),
+          multiple = TRUE
+        )
+      )
+    }
+
+    if (input$reporte == "Agentes") {
+      return(
+        selectInput(
+          "region", "Región",
+          choices = c("Todos", sort(unique(age_df$region))),
+          multiple = TRUE
+        )
+      )
+    }
   })
 
-  # ---- Aplicar filtros ----
-  datos_filtrados <- reactive({
-
-    ds_info <- get_dataset()
-    df <- ds_info$df
-    var_main <- ds_info$var_main
-    var_num <- ds_info$var_num
-
-    if (!"Todos" %in% input$filtro_main)
-      df <- df %>% filter(.data[[var_main]] %in% input$filtro_main)
-
-    df <- df %>% filter(.data[[var_num]] >= input$filtro_rango[1],
-                        .data[[var_num]] <= input$filtro_rango[2])
-
-    df
+  # ------------------------------------------------------------
+  #          TÍTULO Y FECHA DE ACTUALIZACIÓN
+  # ------------------------------------------------------------
+  output$titulo_reporte <- renderText({
+    paste("Reporte", input$reporte)
   })
 
-  # ---- Tabla ----
+  output$fecha_reporte <- renderText({
+    if (input$reporte == "Coberturas") return(paste("Actualizado a:", fecha_cob))
+    if (input$reporte == "Influenza")  return(paste("Actualizado a:", fecha_inf))
+    if (input$reporte == "Agentes")    return(paste("Actualizado a:", fecha_age))
+  })
+
+  # ------------------------------------------------------------
+  #                       TABLA
+  # ------------------------------------------------------------
   output$tabla <- renderTable({
-    datos_filtrados()
+
+    if (input$reporte == "Coberturas") {
+      df <- cob_df
+      if (!("Todos" %in% input$categoria)) {
+        df <- df %>% filter(categoria %in% input$categoria)
+      }
+      return(df)
+    }
+
+    if (input$reporte == "Influenza") {
+      df <- inf_df
+      if (!("Todos" %in% input$grupo)) {
+        df <- df %>% filter(grupo %in% input$grupo)
+      }
+      return(df)
+    }
+
+    if (input$reporte == "Agentes") {
+      df <- age_df
+      if (!("Todos" %in% input$region)) {
+        df <- df %>% filter(region %in% input$region)
+      }
+      return(df)
+    }
   })
 
-  # ---- Gráfico ----
+  # ------------------------------------------------------------
+  #                      GRÁFICO
+  # ------------------------------------------------------------
   output$grafico <- renderPlotly({
 
-    df <- datos_filtrados()
-    ds_info <- get_dataset()
+    if (input$reporte == "Coberturas") {
 
-    if (input$reporte == "Reporte B – Influenza") {
+      df <- cob_df
+      if (!("Todos" %in% input$categoria)) {
+        df <- df %>% filter(categoria %in% input$categoria)
+      }
+
+      g <- ggplot(df, aes(x = x, y = y)) +
+        geom_col(fill = "#004a99") +
+        theme_minimal()
+
+      return(ggplotly(g))
+    }
+
+    if (input$reporte == "Influenza") {
+
+      df <- inf_df
+      if (!("Todos" %in% input$grupo)) {
+        df <- df %>% filter(grupo %in% input$grupo)
+      }
 
       df$fecha <- as.Date(df$fecha)
 
-      p <- ggplot(df, aes(x = fecha, y = valor, color = grupo)) +
-        geom_line() + geom_point() +
+      g <- ggplot(df, aes(x = fecha, y = valor)) +
+        geom_line(size = 1.1, color = "#cc0000") +
         theme_minimal()
 
-    } else {
-
-      p <- ggplot(df, aes_string(x = ds_info$var_main, y = ds_info$var_num)) +
-        geom_col(fill = "#1f77b4") +
-        theme_minimal()
+      return(ggplotly(g))
     }
 
-    ggplotly(p)
+    if (input$reporte == "Agentes") {
+
+      df <- age_df
+      if (!("Todos" %in% input$region)) {
+        df <- df %>% filter(region %in% input$region)
+      }
+
+      g <- ggplot(df, aes(x = x, y = y)) +
+        geom_point(size = 3, color = "#009944") +
+        theme_minimal()
+
+      return(ggplotly(g))
+    }
   })
 }
 
