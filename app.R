@@ -205,8 +205,8 @@ fluidRow(
         div(style = "height:30px;"),
 
         # Logo (archivo en /www/logo_ues_blanco.png)
-        img(src = "logo_seremi.png", class = "sidebar-logo"),
-        img(src = "logo_epi.png", class = "sidebar-logo"),
+        # img(src = "logo_seremi.png", class = "sidebar-logo"),
+        # img(src = "logo_epi.png", class = "sidebar-logo"),
         img(src = "logo_ues_blanco.png", class = "sidebar-logo")
         
     )
@@ -483,6 +483,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
