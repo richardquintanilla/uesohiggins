@@ -48,8 +48,8 @@ archivo_mas_reciente_info <- function(sufijo) {
 # Detectar los archivos más recientes para cada reporte (se ejecuta 1 vez al iniciar)
 # ================================
 info_olas_calor <- archivo_mas_reciente_info("_coberturas.csv")
-# info_inf <- archivo_mas_reciente_info("_influenza.csv")
-# info_age <- archivo_mas_reciente_info("_agentes.csv")
+info_inf <- archivo_mas_reciente_info("_influenza.csv")
+info_age <- archivo_mas_reciente_info("_agentes.csv")
 
 # ================================
 # Si no existe archivo, se genera tibble vacío con columnas esperadas
@@ -480,6 +480,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
