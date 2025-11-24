@@ -5,6 +5,12 @@ library(ggplot2)
 library(plotly)
 library(stringr)
 library(tibble)
+library(reactable)
+
+# Cargar funciones
+load("www/rt_tabla.rda")
+load("www/grafico_barras.rda")
+load("www/mapa_estadistico.rda")
 
 # ================================
 # COLORES Y CONSTANTES
@@ -150,7 +156,7 @@ COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
 
       tabsetPanel(
         id = "tabs",
-        tabPanel("Tabla", tableOutput("tabla")),
+        tabPanel("Tabla", reactableOutput("tabla"))
         tabPanel("Gráfico", plotlyOutput("grafico"))
       )
     )
@@ -220,9 +226,10 @@ server <- function(input, output, session) {
   # ----------------------------
   # Tabla
   # ----------------------------
-  output$tabla <- renderTable({
-    datos_filtrados()
-  })
+  output$tabla <- renderReactable({
+  df <- datos_filtrados()
+  rt_tabla(df = df, fijas = names(df)[1], destacar = names(df)[2])
+})
 
   # ----------------------------
   # Gráfico
@@ -247,3 +254,4 @@ server <- function(input, output, session) {
 # Run App
 # ================================
 shinyApp(ui, server)
+
