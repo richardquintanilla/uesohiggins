@@ -242,11 +242,14 @@ server <- function(input, output, session) {
       return(ggplotly(p))
     }
 
-    p <- ggplot(df, aes(x = categoria, y = y)) +
-      geom_col(fill = "#1f77b4") +
+    p <- ggplot(df, aes(x = categoria, y = y, 
+                        text = paste0("Categoría: ", categoria, 
+                                      "<br>",
+                                      "N° de algo: ", y))) +
+      geom_col() +
       theme_minimal()
 
-    ggplotly(p)
+    ggplotly(p, tooltip = "text")
   })
 }
 
@@ -254,4 +257,5 @@ server <- function(input, output, session) {
 # Run App
 # ================================
 shinyApp(ui, server)
+
 
