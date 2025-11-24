@@ -181,7 +181,7 @@ COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
 # -----------------------
 # Barra superior (título)
 # -----------------------
-div(class = "titulo-banner", "UES O'Higgins – Reportes"),
+# div(class = "titulo-banner", "UES O'Higgins – Reportes"),
 
 # -----------------------
 # Layout principal: sidebar (col 2) + contenido (col 10)
@@ -485,3 +485,4 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
