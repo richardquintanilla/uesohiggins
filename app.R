@@ -1,12 +1,3 @@
-# app.R - Versión detallada y verbosa (larga) con todas las funciones que pediste
-# - Detección automática del archivo más reciente por patrón (AAMMDD_..._tipo.csv)
-# - Fecha dinámica mostrada en sidebar
-# - Logo centrado en sidebar
-# - Filtros horizontales sobre el contenido con selectize (checkbox-style) y botones
-#   "Seleccionar todo / Deseleccionar todo" insertados dentro del dropdown
-# - Carga de CSV una sola vez (mejora rendimiento)
-# - CSS con % escapados (%%) para evitar errores en sprintf()
-
 library(shiny)
 library(dplyr)
 library(readr)
@@ -164,7 +155,7 @@ ui <- fluidPage(
       }
       .nav-tabs > li.active > a {
         background-color: %s !important;
-        color: black !important;
+        color: white !important;
         border: 1px solid %s !important;
         font-weight: bold !important;
       }
@@ -485,5 +476,6 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
