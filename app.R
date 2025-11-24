@@ -189,9 +189,7 @@ fluidRow(
           inputId = "reporte",
           label = "Seleccione un reporte:",
           choices = c(
-            "Reporte A – Coberturas",
-            "Reporte B – Influenza",
-            "Reporte C – Agentes Etiológicos"
+            "Vigilancia Olas de Calor"
           )
         ),
         
@@ -206,7 +204,7 @@ fluidRow(
 
         # Logo (archivo en /www/logo_ues_blanco.png)
         # img(src = "logo_seremi.png", class = "sidebar-logo"),
-        # img(src = "logo_epi.png", class = "sidebar-logo"),
+        img(src = "logo_epi.png", class = "sidebar-logo"),
         img(src = "logo_ues_blanco.png", class = "sidebar-logo")
         
     )
@@ -483,6 +481,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
