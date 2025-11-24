@@ -19,8 +19,8 @@ library(tibble)
 # COLORES Y CONSTANTES
 # ================================
 COLOR_BARRA      <- "#191970"
-COLOR_TAB_ACTIVA <- "#EEE9E9"
-COLOR_TAB_INACTIVA <- "#f5f5f5"
+COLOR_TAB_ACTIVA <- "#191970"
+COLOR_TAB_INACTIVA <- "#EEE9E9"
 COLOR_BORDE_TAB  <- "white"
 
 # ================================
@@ -485,4 +485,5 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
