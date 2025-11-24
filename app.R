@@ -182,10 +182,7 @@ fluidRow(
   column(
     width = 2,
     div(class = "sidebar-custom",
-        # Logo (archivo en /www/logo_ues_blanco.png)
-        img(src = "logo_seremi.png", class = "sidebar-logo"),
-        img(src = "logo_epi.png", class = "sidebar-logo"),
-        img(src = "logo_ues_blanco.png", class = "sidebar-logo"),
+        
         
         # Selector de reporte (NO cambiar)
         selectInput(
@@ -203,7 +200,13 @@ fluidRow(
             style = "margin-top:20px; font-size:14px; color:white;",
             span("Fecha del reporte: "),
             textOutput("fecha_actualizacion", inline = TRUE)
-        )
+        ),
+
+        # Logo (archivo en /www/logo_ues_blanco.png)
+        img(src = "logo_seremi.png", class = "sidebar-logo"),
+        img(src = "logo_epi.png", class = "sidebar-logo"),
+        img(src = "logo_ues_blanco.png", class = "sidebar-logo")
+        
     )
   ),
   
@@ -478,6 +481,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
