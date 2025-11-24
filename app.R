@@ -156,7 +156,7 @@ COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
 
       tabsetPanel(
         id = "tabs",
-        tabPanel("Tabla", reactableOutput("tabla"))
+        tabPanel("Tabla", reactableOutput("tabla")),
         tabPanel("Gráfico", plotlyOutput("grafico"))
       )
     )
@@ -257,5 +257,6 @@ server <- function(input, output, session) {
 # Run App
 # ================================
 shinyApp(ui, server)
+
 
 
