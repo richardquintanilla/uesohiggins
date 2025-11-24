@@ -47,19 +47,18 @@ archivo_mas_reciente_info <- function(sufijo) {
 # ================================
 # Detectar los archivos más recientes para cada reporte (se ejecuta 1 vez al iniciar)
 # ================================
-info_cob <- archivo_mas_reciente_info("_coberturas.csv")
-info_inf <- archivo_mas_reciente_info("_influenza.csv")
-info_age <- archivo_mas_reciente_info("_agentes.csv")
+info_olas_calor <- archivo_mas_reciente_info("_coberturas.csv")
+# info_inf <- archivo_mas_reciente_info("_influenza.csv")
+# info_age <- archivo_mas_reciente_info("_agentes.csv")
 
 # ================================
-# Cargar CSV UNA SOLA VEZ (mejora considerablemente el rendimiento)
 # Si no existe archivo, se genera tibble vacío con columnas esperadas
 # ================================
 # Coberturas: columnas esperadas x, y, categoria (si varían, el app maneja columnas via existence checks)
-if (!is.na(info_cob$archivo)) {
-  cob_df <- read_csv(info_cob$archivo, show_col_types = FALSE)
+if (!is.na(info_olas_calor$archivo)) {
+  olas_calor_df <- read_csv(info_olas_calor$archivo, show_col_types = FALSE)
 } else {
-  cob_df <- tibble(x = character(), y = numeric(), categoria = character())
+  olas_calor_df <- tibble(x = character(), y = numeric(), categoria = character())
 }
 
 # Influenza: fecha, valor, grupo
@@ -79,7 +78,7 @@ if (!is.na(info_age$archivo)) {
 # ================================
 # Formatear fechas para mostrar en el sidebar (DD-MM-YYYY) o "N/A"
 # ================================
-fecha_cob_str <- if (!is.na(info_cob$fecha)) format(info_cob$fecha, "%d-%m-%Y") else "N/A"
+fecha_olas_calor_str <- if (!is.na(info_olas_calor$fecha)) format(info_olas_calor$fecha, "%d-%m-%Y") else "N/A"
 fecha_inf_str <- if (!is.na(info_inf$fecha)) format(info_inf$fecha, "%d-%m-%Y") else "N/A"
 fecha_age_str <- if (!is.na(info_age$fecha)) format(info_age$fecha, "%d-%m-%Y") else "N/A"
 
@@ -237,7 +236,7 @@ server <- function(input, output, session) {
   # ----------------------------
   output$fecha_actualizacion <- renderText({
     fecha <- switch(input$reporte,
-                    "Reporte A – Coberturas" = fecha_cob_str,
+                    "Vigilancia Olas de Calor" = fecha_olas_calor_str,
                     "Reporte B – Influenza"  = fecha_inf_str,
                     "Reporte C – Agentes Etiológicos" = fecha_age_str,
                     "N/A")
@@ -249,8 +248,8 @@ server <- function(input, output, session) {
   # (NO lee archivos repetidamente)
   # ----------------------------
   get_dataset <- reactive({
-    if (input$reporte == "Reporte A – Coberturas") {
-      list(df = cob_df, var_main = "categoria", var_num = "y")
+    if (input$reporte == "Vigilancia Olas de Calor") {
+      list(df = olas_calor_df, var_main = "categoria", var_num = "y")
     } else if (input$reporte == "Reporte B – Influenza") {
       # convertir columna fecha a Date si existe y no lo está
       if ("fecha" %in% names(inf_df)) {
@@ -481,6 +480,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
