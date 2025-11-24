@@ -197,7 +197,7 @@ fluidRow(
         
         # Fecha dinámica del reporte (renderText en server)
         div(id = "fecha_texto",
-            style = "margin-top:20px; font-size:14px; color:white;",
+            style = "margin-top:20px; font-size:14px; font-weight: bold; color:white;",
             span("Fecha del reporte: "),
             textOutput("fecha_actualizacion", inline = TRUE)
         ),
@@ -483,6 +483,7 @@ server <- function(input, output, session) {
 # Ejecutar app
 # ================================
 shinyApp(ui, server)
+
 
 
 
