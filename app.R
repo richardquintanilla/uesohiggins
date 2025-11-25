@@ -26,16 +26,16 @@ COLOR_BORDE_TAB  <- "white"
 archivo_mas_reciente_info <- function(sufijo) {
   pattern <- paste0("^[0-9]{6}.*", sufijo, "$")
   archivos <- list.files("data", pattern = pattern, full.names = TRUE)
-
+  
   if (length(archivos) == 0) {
     return(list(archivo = NA_character_, fecha = NA))
   }
-
+  
   nombres_base <- basename(archivos)
   prefijos <- str_extract(nombres_base, "^[0-9]{6}")
   fechas <- suppressWarnings(as.Date(prefijos, format = "%y%m%d"))
   idx <- which.max(fechas)
-
+  
   list(archivo = archivos[idx], fecha = fechas[idx])
 }
 
@@ -118,12 +118,12 @@ ui <- fluidPage(
         font-weight: bold !important;
       }
     ",
-COLOR_BARRA, COLOR_BARRA,
-COLOR_TAB_INACTIVA, COLOR_BORDE_TAB,
-COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
+                            COLOR_BARRA, COLOR_BARRA,
+                            COLOR_TAB_INACTIVA, COLOR_BORDE_TAB,
+                            COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
     )))
   ),
-
+  
   fluidRow(
     # Sidebar
     column(
@@ -134,26 +134,26 @@ COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
             "Seleccione un reporte:",
             choices = c("Vigilancia Olas de Calor")
           ),
-
+          
           div(id = "fecha_texto",
               style = "margin-top:20px; font-size:14px; font-weight: bold; color:white;",
               span("Fecha del reporte: "),
               textOutput("fecha_actualizacion", inline = TRUE)
           ),
-
+          
           div(style = "height:20px;"),
-
+          
           img(src = "logo_epi.png", class = "sidebar-logo"),
           img(src = "logo_ues_blanco.png", class = "sidebar-logo")
       )
     ),
-
+    
     # Contenido
     column(
       width = 10,
       uiOutput("filtros_ui"),
       br(),
-
+      
       tabsetPanel(
         id = "tabs",
         tabPanel("Tabla", reactableOutput("tabla")),
@@ -167,26 +167,26 @@ COLOR_TAB_ACTIVA, COLOR_BORDE_TAB
 # SERVER
 # ================================
 server <- function(input, output, session) {
-
+  
   # Fecha dinámica
   output$fecha_actualizacion <- renderText({
     fecha_olas_calor_str
   })
-
+  
   # Dataset estático
   get_dataset <- reactive({
     list(df = olas_calor_df, var_main = "categoria", var_num = "y")
   })
-
+  
   # ----------------------------
   # UI de filtros
   # ----------------------------
   output$filtros_ui <- renderUI({
     ds <- get_dataset()
     df <- ds$df
-
+    
     main_vals <- if ("categoria" %in% names(df)) sort(unique(df$categoria)) else character(0)
-
+    
     selectizeInput(
       "filtro_main",
       "Categoría:",
@@ -209,46 +209,46 @@ server <- function(input, output, session) {
       )
     )
   })
-
+  
   # ----------------------------
   # Filtrado
   # ----------------------------
   datos_filtrados <- reactive({
     df <- get_dataset()$df
-
+    
     if (!is.null(input$filtro_main) && length(input$filtro_main) > 0) {
       df <- df %>% filter(categoria %in% input$filtro_main)
     }
-
+    
     df
   })
-
+  
   # ----------------------------
   # Tabla
   # ----------------------------
   output$tabla <- renderReactable({
-  df <- datos_filtrados()
-  rt_tabla(df = df, fijas = names(df)[1], destacar = names(df)[2])
-})
-
+    df <- datos_filtrados()
+    rt_tabla(df = df, fijas = names(df)[1], destacar = names(df)[2])
+  })
+  
   # ----------------------------
   # Gráfico
   # ----------------------------
   output$grafico <- renderPlotly({
     df <- datos_filtrados()
-
+    
     if (nrow(df) == 0) {
       p <- ggplot() + theme_void() + ggtitle("No hay datos para mostrar")
       return(ggplotly(p))
     }
-
+    
     p <- ggplot(df, aes(x = categoria, y = y, 
                         text = paste0("Categoría: ", categoria, 
                                       "<br>",
                                       "N° de algo: ", y))) +
-      geom_col() +
+      geom_col(aes(fill = categoria)) +
       theme_minimal()
-
+    
     ggplotly(p, tooltip = "text")
   })
 }
@@ -257,6 +257,4 @@ server <- function(input, output, session) {
 # Run App
 # ================================
 shinyApp(ui, server)
-
-
 
