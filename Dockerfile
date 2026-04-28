@@ -1,36 +1,47 @@
-# Dockerfile alternativo (más ligero)
-FROM rocker/shiny:4.4.0
+# Dockerfile para GES Monitoreo App
+FROM rocker/r-ver:4.4.0
 
-# Instalar paquetes adicionales
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
     libssl-dev \
+    libcurl4-openssl-dev \
     libxml2-dev \
+    libfontconfig1-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar paquetes de R
+# Instalar TODOS los paquetes de R necesarios
 RUN R -e "install.packages(c(
+    'shiny',
     'shinydashboard',
     'tidyverse',
+    'dplyr',
+    'ggplot2',
     'plotly',
     'DT',
+    'readr',
+    'stringr',
     'lubridate',
     'janitor',
     'readxl'
-))"
+), dependencies = TRUE)"
 
-# Copiar app
-COPY app.R /srv/shiny-server/
-COPY listados /srv/shiny-server/listados/
-COPY www /srv/shiny-server/www/
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de la aplicación
+COPY app.R /app/
+COPY listados /app/listados/
+COPY www /app/www/
 
 # Exponer puerto
 EXPOSE 3838
 
-# Comando para ejecutar
-CMD ["R", "-e", "shiny::runApp('/srv/shiny-server', host='0.0.0.0', port=3838)"]
-
-
-
-
+# Comando para ejecutar la app
+CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=3838)"]
