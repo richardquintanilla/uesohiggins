@@ -16,21 +16,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar TODOS los paquetes de R necesarios
-RUN R -e "install.packages(c(
-    'shiny',
-    'shinydashboard',
-    'tidyverse',
-    'dplyr',
-    'ggplot2',
-    'plotly',
-    'DT',
-    'readr',
-    'stringr',
-    'lubridate',
-    'janitor',
-    'readxl'
-), dependencies = TRUE)"
+# Instalar TODOS los paquetes de R necesarios (en una sola línea)
+RUN R -e "install.packages(c('shiny', 'shinydashboard', 'tidyverse', 'dplyr', 'ggplot2', 'plotly', 'DT', 'readr', 'stringr', 'lubridate', 'janitor', 'readxl'), dependencies = TRUE)"
 
 # Crear directorio de trabajo
 WORKDIR /app
