@@ -1,4 +1,4 @@
-# Dockerfile - Versión ultra simple
+# Dockerfile - Corregido con carpeta data
 FROM rocker/shiny:4.4.0
 
 # Instalar paquetes de R necesarios
@@ -14,9 +14,9 @@ RUN R -e "install.packages('readxl')"
 RUN mkdir -p /srv/shiny-server/ges
 
 # Copiar archivos
-COPY app.R /srv/shiny-server/ges/
-COPY listados /srv/shiny-server/ges/listados/
-COPY www /srv/shiny-server/ges/www/
+COPY app.R /srv/shiny-server/
+COPY data /srv/shiny-server/data/
+COPY www /srv/shiny-server/www/
 
 # Exponer puerto
 EXPOSE 3838
