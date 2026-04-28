@@ -1,25 +1,13 @@
-# Dockerfile - Corregido con carpeta data
 FROM rocker/shiny:4.4.0
 
-# Instalar paquetes de R necesarios
-RUN R -e "install.packages('shinydashboard')"
-RUN R -e "install.packages('tidyverse')"
-RUN R -e "install.packages('plotly')"
-RUN R -e "install.packages('DT')"
-RUN R -e "install.packages('lubridate')"
-RUN R -e "install.packages('janitor')"
-RUN R -e "install.packages('readxl')"
+# Instalar paquetes
+RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'DT', 'lubridate', 'janitor', 'readxl'))"
 
-# Crear directorio
-RUN mkdir -p /srv/shiny-server/ges
-
-# Copiar archivos
+# Copiar app.R a la ubicación correcta
 COPY app.R /srv/shiny-server/
-COPY data /srv/shiny-server/data/
-COPY www /srv/shiny-server/www/
 
 # Exponer puerto
 EXPOSE 3838
 
-# Ejecutar
-CMD ["R", "-e", "shiny::runApp('/srv/shiny-server/ges', host='0.0.0.0', port=3838)"]
+# Ejecutar desde el directorio correcto
+CMD ["R", "-e", "shiny::runApp('/srv/shiny-server', host='0.0.0.0', port=3838)"]
