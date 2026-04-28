@@ -1,18 +1,25 @@
-FROM rocker/r-ver:4.4.0
+# Dockerfile - Versión ultra simple
+FROM rocker/shiny:4.4.0
 
-RUN apt-get update && apt-get install -y \
-    libssl-dev libcurl4-openssl-dev libxml2-dev \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Instalar paquetes de R necesarios
+RUN R -e "install.packages('shinydashboard')"
+RUN R -e "install.packages('tidyverse')"
+RUN R -e "install.packages('plotly')"
+RUN R -e "install.packages('DT')"
+RUN R -e "install.packages('lubridate')"
+RUN R -e "install.packages('janitor')"
+RUN R -e "install.packages('readxl')"
 
-RUN R -e "install.packages(c('shiny', 'dplyr', 'ggplot2', 'readr', 'stringr', 'plotly', 'reactable'))"
+# Crear directorio
+RUN mkdir -p /srv/shiny-server/ges
 
-WORKDIR /app
+# Copiar archivos
+COPY app.R /srv/shiny-server/ges/
+COPY listados /srv/shiny-server/ges/listados/
+COPY www /srv/shiny-server/ges/www/
 
-COPY app.R /app/
-COPY data /app/data
-COPY www /app/www
-
-ENV PORT=3838
+# Exponer puerto
 EXPOSE 3838
 
-CMD ["R", "-e", "shiny::runApp('/app', host='0.0.0.0', port=as.numeric(Sys.getenv('PORT')))"]
+# Ejecutar
+CMD ["R", "-e", "shiny::runApp('/srv/shiny-server/ges', host='0.0.0.0', port=3838)"]
