@@ -1,11 +1,11 @@
 FROM rocker/shiny:4.4.0
 
-RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'DT', 'lubridate', 'janitor', 'readxl', 'reactable', 'reactablefmtr'))"
+RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'lubridate', 'reactable', 'htmltools'))"
 
 # Crear directorio principal
 RUN mkdir -p /srv/shiny-server
 
-# Copiar archivos (¡orden IMPORTANTE!)
+# Copiar archivos
 COPY app.R /srv/shiny-server/
 COPY data /srv/shiny-server/data/
 COPY www /srv/shiny-server/www/
