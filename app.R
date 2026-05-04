@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES (Versión con detección automática de rutas)
+# app.R - Vigilancia GES (Versión Optimizada para Velocidad)
 
 library(shiny)
 library(shinydashboard)
@@ -8,6 +8,7 @@ library(DT)
 library(lubridate)
 library(reactable)
 library(htmltools)
+library(data.table)  # ← NUEVO: para fread()
 
 # ============================================
 # FUNCIONES COMUNES
@@ -231,7 +232,7 @@ ui <- dashboardPage(
                  height = "100px", style = "display: block;")
     ),
     
-    sidebarMenu(
+    sidebarMenu(id = "sidebarItemExpanded",  # ← NUEVO: ID para controlar pestañas
       menuItem("⚠️ GES Retrasadas", tabName = "retrasadas"),
       menuItem("🕓 GES Vigentes", tabName = "vigentes")
     ),
@@ -317,46 +318,42 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
   
   # ------------------------------------------------------------
-  # 1. CARGA DE DATOS CON DETECCIÓN DE RUTAS MÚLTIPLES
+  # 1. CARGA DE DATOS CON DETECCIÓN DE RUTAS MÚLTIPLES (OPTIMIZADO CON FREAD)
   # ------------------------------------------------------------
   
   # Rutas posibles para RETRASADAS
   rutas_retrasadas <- c(
-    "data/ges_retrasadas.csv",                    # Para Render (carpeta data en raíz)
-    "ges/listados/ges_retrasadas.csv",            # Para estructura local
-    "listados/ges_retrasadas.csv",                # Alternativa local
-    "../r_datos/ges/ges_retrasadas.csv"           # Otra alternativa
+    "data/ges_retrasadas.csv",
+    "ges/listados/ges_retrasadas.csv",
+    "listados/ges_retrasadas.csv",
+    "../r_datos/ges/ges_retrasadas.csv"
   )
   
   # Rutas posibles para VIGENTES
   rutas_vigentes <- c(
-    "data/ges_vigentes.csv",                      # Para Render (carpeta data en raíz)
-    "ges/listados/ges_vigentes.csv",              # Para estructura local
-    "listados/ges_vigentes.csv",                  # Alternativa local
-    "../r_datos/ges/ges_vigentes.csv"             # Otra alternativa
+    "data/ges_vigentes.csv",
+    "ges/listados/ges_vigentes.csv",
+    "listados/ges_vigentes.csv",
+    "../r_datos/ges/ges_vigentes.csv"
   )
   
   # Encontrar archivos
   ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
   ruta_vigentes <- encontrar_archivo(rutas_vigentes)
   
-  # Verificar si se encontraron los archivos
   if(is.null(ruta_retrasadas)) {
-    stop(paste("No se encontró el archivo de RETRASADAS en ninguna de estas rutas:", 
-               paste(rutas_retrasadas, collapse = ", ")))
+    stop(paste("No se encontró el archivo de RETRASADAS en:", paste(rutas_retrasadas, collapse = ", ")))
   }
   
   if(is.null(ruta_vigentes)) {
-    stop(paste("No se encontró el archivo de VIGENTES en ninguna de estas rutas:", 
-               paste(rutas_vigentes, collapse = ", ")))
+    stop(paste("No se encontró el archivo de VIGENTES en:", paste(rutas_vigentes, collapse = ", ")))
   }
   
-  # Mensaje de depuración (opcional, se puede quitar en producción)
   cat("✅ Archivo RETRASADAS encontrado en:", ruta_retrasadas, "\n")
   cat("✅ Archivo VIGENTES encontrado en:", ruta_vigentes, "\n")
   
-  # Cargar RETRASADAS
-  df_retrasadas <- read.csv(ruta_retrasadas, stringsAsFactors = FALSE) %>%
+  # ← CAMBIO 1: usar fread() en lugar de read.csv() (más rápido)
+  df_retrasadas <- data.table::fread(ruta_retrasadas, data.table = FALSE, stringsAsFactors = FALSE) %>%
     mutate(
       fecha_corte = as.Date(fecha_corte),
       fecha_limite = as.Date(fecha_limite),
@@ -371,8 +368,7 @@ server <- function(input, output, session) {
       es_oncologico = sapply(problema_de_salud, es_oncologico)
     )
   
-  # Cargar VIGENTES
-  df_vigentes_raw <- read.csv(ruta_vigentes, stringsAsFactors = FALSE) %>%
+  df_vigentes_raw <- data.table::fread(ruta_vigentes, data.table = FALSE, stringsAsFactors = FALSE) %>%
     mutate(
       fecha_corte = as.Date(fecha_corte),
       fecha_inicio = as.Date(fecha_inicio),
@@ -401,7 +397,7 @@ server <- function(input, output, session) {
   datos_recientes_vigentes <- df_vigentes_raw %>% filter(fecha_corte == fecha_max_vigentes)
   
   # ------------------------------------------------------------
-  # 3. FILTROS (selección única)
+  # 3. FILTROS
   # ------------------------------------------------------------
   
   observe({
@@ -483,7 +479,7 @@ server <- function(input, output, session) {
   })
   
   # ------------------------------------------------------------
-  # 4. TABLAS DE DETALLE
+  # 4. TABLAS DE DETALLE (CON BINDCACHE PARA ACELERAR)
   # ------------------------------------------------------------
   
   output$tabla_detalle_retrasadas <- renderReactable({
@@ -519,7 +515,11 @@ server <- function(input, output, session) {
       col_fijas = c("Responsable de Garantía", "Problema de Salud"),
       col_destacar = "Total"
     )
-  })
+  }) %>% bindCache(  # ← NUEVO: cache por filtros
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tabla_detalle_vigentes <- renderReactable({
     datos <- datos_recientes_filt_vig()
@@ -554,10 +554,14 @@ server <- function(input, output, session) {
       col_fijas = c("Responsable de Garantía", "Problema de Salud"),
       col_destacar = "Total"
     )
-  })
+  }) %>% bindCache(  # ← NUEVO: cache por filtros
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   # ------------------------------------------------------------
-  # 5. OUTPUTS - RETRASADAS
+  # 5. OUTPUTS - RETRASADAS (CON BINDCACHE)
   # ------------------------------------------------------------
   
   output$tarjeta_total_retrasadas <- renderUI({
@@ -569,7 +573,11 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(nrow(datos), big.mark = ".", decimal.mark = ",")), 
                 p("Total GES Retrasadas", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_nueva_vencida <- renderUI({
     datos <- datos_recientes_filt_ret()
@@ -581,7 +589,11 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Nuevas Vencidas (Retraso ≤ 7 días)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_vencida <- renderUI({
     datos <- datos_recientes_filt_ret()
@@ -593,7 +605,11 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Vencidas (Retraso entre 8 y 365 días)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_vencida_prolongada <- renderUI({
     datos <- datos_recientes_filt_ret()
@@ -605,7 +621,11 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Vencidas Prolongadas (Retraso > 365 días)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$top_responsables_retrasadas <- renderPlotly({
     datos <- datos_recientes_filt_ret()
@@ -623,7 +643,11 @@ server <- function(input, output, session) {
              xaxis = list(title = "", range = c(0, max_n * 1.25), showticklabels = FALSE, showgrid = FALSE), 
              yaxis = list(title = ""), 
              margin = list(l = 150, r = 120, t = 10, b = 10))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$top_problemas_retrasadas <- renderPlotly({
     datos <- datos_recientes_filt_ret()
@@ -641,9 +665,16 @@ server <- function(input, output, session) {
              xaxis = list(title = "", range = c(0, max_n * 1.25), showticklabels = FALSE, showgrid = FALSE), 
              yaxis = list(title = ""), 
              margin = list(l = 200, r = 120, t = 10, b = 10))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$grafico_evolucion_retrasadas <- renderPlotly({
+    # ← NUEVO: solo calcular si la pestaña está activa
+    req(input$sidebarItemExpanded == "retrasadas")
+    
     df_hist <- datos_historicos_filt_ret()
     req(df_hist)
     if(nrow(df_hist) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos"))
@@ -709,13 +740,19 @@ server <- function(input, output, session) {
                               tickvals = fechas_unicas, ticktext = format(fechas_unicas, "%d/%m/%y")), 
                  yaxis = list(title = "N° GES Retrasadas", tickformat = ".0s"), 
                  legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   # ------------------------------------------------------------
-  # 6. OUTPUTS - VIGENTES
+  # 6. OUTPUTS - VIGENTES (CON BINDCACHE Y REQ DE PESTAÑA)
   # ------------------------------------------------------------
   
   output$tarjeta_total_vigentes <- renderUI({
+    # ← NUEVO: solo calcular si la pestaña está activa
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     div(class = "col-sm-3",
@@ -724,9 +761,14 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(nrow(datos), big.mark = ".", decimal.mark = ",")), 
                 p("Total Garantías Vigentes", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_tempranas <- renderUI({
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     n <- datos %>% filter(clasificacion_avance == "Tempranas (Avance ≤ 25% del plazo total)") %>% nrow()
@@ -736,9 +778,14 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Tempranas (Avance ≤ 25% del plazo total)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_intermedias <- renderUI({
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     n <- datos %>% filter(clasificacion_avance == "Intermedias (Avance entre 26 y 50% del plazo total)") %>% nrow()
@@ -748,9 +795,14 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Intermedias (Avance entre 26 y 50% del plazo total)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$tarjeta_avanzadas <- renderUI({
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     n <- datos %>% filter(clasificacion_avance == "Avanzadas (Avance > 50% del plazo total)") %>% nrow()
@@ -760,9 +812,14 @@ server <- function(input, output, session) {
             div(class = "inner", 
                 h3(format(n, big.mark = ".", decimal.mark = ",")), 
                 p("Avanzadas (Avance > 50% del plazo total)", style = "font-weight: bold;"))))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$top_responsables_vigentes <- renderPlotly({
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     if(nrow(datos) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos"))
@@ -778,9 +835,14 @@ server <- function(input, output, session) {
              xaxis = list(title = "", range = c(0, max_n * 1.25), showticklabels = FALSE, showgrid = FALSE), 
              yaxis = list(title = ""), 
              margin = list(l = 150, r = 120, t = 10, b = 10))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$top_problemas_vigentes <- renderPlotly({
+    req(input$sidebarItemExpanded == "vigentes")
     datos <- datos_recientes_filt_vig()
     req(datos)
     if(nrow(datos) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos"))
@@ -796,9 +858,14 @@ server <- function(input, output, session) {
              xaxis = list(title = "", range = c(0, max_n * 1.25), showticklabels = FALSE, showgrid = FALSE), 
              yaxis = list(title = ""), 
              margin = list(l = 200, r = 120, t = 10, b = 10))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$grafico_evolucion_vigentes <- renderPlotly({
+    req(input$sidebarItemExpanded == "vigentes")
     df_hist <- datos_historicos_filt_vig()
     req(df_hist)
     if(nrow(df_hist) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos históricos"))
@@ -873,7 +940,11 @@ server <- function(input, output, session) {
                               tickvals = fechas_unicas, ticktext = format(fechas_unicas, "%d/%m/%y")),
                  yaxis = list(title = "Cantidad de Garantías Vigentes", tickformat = ".0s"),
                  legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
-  })
+  }) %>% bindCache(
+    input$responsable_filter,
+    input$problema_filter,
+    input$oncologicos_check
+  )
   
   output$fecha_corte_header <- renderText({
     paste("📅 Fecha de corte:", format(fecha_max_retrasadas, "%d-%m-%Y"))
