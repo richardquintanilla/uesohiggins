@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES (Versión con detección automática de rutas)
+# app.R - Vigilancia GES
 
 library(shiny)
 library(shinydashboard)
@@ -275,7 +275,7 @@ ui <- dashboardPage(
                                 plotlyOutput("top_problemas_vigentes", height = "450px"))
                        ),
                        fluidRow(
-                            box(title = "Detalle por Responsable y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
+                            box(title = "Detalle de GES Vigentes por Responsable de Garantía y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_detalle_vigentes"))
                        ),
                        fluidRow(
@@ -298,7 +298,7 @@ ui <- dashboardPage(
                                 plotlyOutput("top_problemas_retrasadas", height = "450px"))
                        ),
                        fluidRow(
-                            box(title = "Detalle por Responsable y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
+                            box(title = "Detalle de GES Retrasadas por Responsable de Garantía y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_detalle_retrasadas"))
                        ),
                        fluidRow(
@@ -320,7 +320,7 @@ ui <- dashboardPage(
                                 plotlyOutput("top_problemas_exceptuadas", height = "450px"))
                        ),
                        fluidRow(
-                            box(title = "Detalle por Responsable y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
+                            box(title = "Detalle de GES Exceptuadas Transitorias por Responsable de Garantía y Problema de Salud", status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_detalle_exceptuadas"))
                        ),
                        fluidRow(
