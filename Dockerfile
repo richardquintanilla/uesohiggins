@@ -1,6 +1,7 @@
 FROM rocker/shiny:4.4.0
 
-RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'lubridate', 'reactable', 'htmltools'))"
+# Instalar TODAS las librerías que usa app.R (shiny incluido)
+RUN R -e "install.packages(c('shiny', 'shinydashboard', 'tidyverse', 'plotly', 'lubridate', 'reactable', 'htmltools'))"
 
 # Crear directorio principal
 RUN mkdir -p /srv/shiny-server
