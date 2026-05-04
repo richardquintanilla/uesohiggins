@@ -1,6 +1,6 @@
 FROM rocker/shiny:4.4.0
 
-RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'DT', 'lubridate', 'janitor', 'readxl', 'reactable', 'reactablefmtr'))"
+RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'DT', 'lubridate', 'janitor', 'readxl', 'reactable', 'reactablefmtr', 'data.table'))"
 
 # Crear directorio principal
 RUN mkdir -p /srv/shiny-server
