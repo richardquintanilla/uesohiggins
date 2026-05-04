@@ -189,42 +189,195 @@ ui <- dashboardPage(
   dashboardSidebar(
     width = 300,
     tags$style(HTML("
-      .skin-blue .main-header { position: fixed; width: 100%; z-index: 1030; top: 0; }
-      .main-sidebar { position: fixed; top: 50px; bottom: 0; left: 0; z-index: 1020; overflow-y: auto; }
-      .content-wrapper, .right-side { margin-left: 300px; padding-top: 50px; overflow-x: hidden; }
-      @media (max-width: 767px) { .content-wrapper, .right-side { margin-left: 0; } }
-      .main-sidebar { background-color: #191970 !important; }
-      .sidebar-menu > li > a { color: #ecf0f1 !important; background-color: #191970 !important; }
-      .sidebar-menu > li > a:hover { background-color: #2c2c8a !important; }
-      .skin-blue .main-header .navbar { background-color: #191970 !important; }
-      .skin-blue .main-header .logo { background-color: #0f0f4f !important; color: #ecf0f1 !important; }
-      .content-wrapper, .right-side { background-color: #f4f4f4; }
-      .box, .portlet { border: none !important; box-shadow: none !important; }
-      .box.box-primary, .box.box-info { border: none !important; }
-      .box-body { border: none !important; }
-      .box.box-solid.box-primary > .box-header { border-bottom: 1px solid #e0e0e0 !important; }
-      .box.box-solid.box-info > .box-header { border-bottom: 1px solid #e0e0e0 !important; }
-      .control-label { font-weight: normal !important; }
-      .sidebar .selectize-control, .sidebar .shiny-input-container:not(.shiny-input-container-inline) { width: 100% !important; }
-      .sidebar .checkbox, .sidebar .action-button { width: 100%; margin-left: 0; margin-right: 0; }
-      .sidebar .action-button { margin-top: 5px; }
-      .custom-box { border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); transition: all 0.3s cubic-bezier(.25,.8,.25,1); margin-bottom: 20px; position: relative; color: white; }
-      .custom-box:hover { box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22); }
-      .custom-box .inner { padding: 15px; text-align: center; }
-      .custom-box .inner h3 { font-size: 38px; font-weight: bold; margin: 0 0 10px 0; white-space: nowrap; padding: 0; }
-      .custom-box .inner p { font-size: 14px; margin: 0; font-weight: bold; }
-      .custom-box .icon { position: absolute; right: 10px; top: 10px; font-size: 50px; opacity: 0.3; }
+      /* Eliminar márgenes superiores completamente */
+      body, html {
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: #f4f4f4;
+      }
+      
+      .skin-blue .main-header { 
+        position: fixed; 
+        width: 100%; 
+        z-index: 1030; 
+        top: 0; 
+        margin: 0 !important;
+      }
+      
+      .main-sidebar { 
+        position: fixed; 
+        top: 50px; 
+        bottom: 0; 
+        left: 0; 
+        z-index: 1020; 
+        overflow-y: auto; 
+        margin-top: 0 !important;
+      }
+      
+      .content-wrapper, .right-side { 
+        margin-left: 300px; 
+        padding-top: 50px; 
+        overflow-x: hidden; 
+        margin-top: 0 !important;
+      }
+      
+      /* Ajuste para el sidebar en móviles */
+      @media (max-width: 767px) { 
+        .content-wrapper, .right-side { 
+          margin-left: 0; 
+        } 
+      }
+      
+      /* Colores del sidebar */
+      .main-sidebar { 
+        background-color: #191970 !important; 
+      }
+      
+      .sidebar-menu > li > a { 
+        color: #ecf0f1 !important; 
+        background-color: #191970 !important; 
+      }
+      
+      .sidebar-menu > li > a:hover { 
+        background-color: #2c2c8a !important; 
+      }
+      
+      .skin-blue .main-header .navbar { 
+        background-color: #191970 !important; 
+      }
+      
+      .skin-blue .main-header .logo { 
+        background-color: #0f0f4f !important; 
+        color: #ecf0f1 !important; 
+      }
+      
+      .content-wrapper, .right-side { 
+        background-color: #f4f4f4; 
+      }
+      
+      /* Estilos de cajas */
+      .box, .portlet { 
+        border: none !important; 
+        box-shadow: none !important; 
+      }
+      
+      .box.box-primary, .box.box-info { 
+        border: none !important; 
+      }
+      
+      .box-body { 
+        border: none !important; 
+      }
+      
+      .box.box-solid.box-primary > .box-header { 
+        border-bottom: 1px solid #e0e0e0 !important; 
+      }
+      
+      .box.box-solid.box-info > .box-header { 
+        border-bottom: 1px solid #e0e0e0 !important; 
+      }
+      
+      .control-label { 
+        font-weight: normal !important; 
+      }
+      
+      .sidebar .selectize-control, 
+      .sidebar .shiny-input-container:not(.shiny-input-container-inline) { 
+        width: 100% !important; 
+      }
+      
+      .sidebar .checkbox, 
+      .sidebar .action-button { 
+        width: 100%; 
+        margin-left: 0; 
+        margin-right: 0; 
+      }
+      
+      .sidebar .action-button { 
+        margin-top: 5px; 
+      }
+      
+      /* Tarjetas personalizadas */
+      .custom-box { 
+        border-radius: 10px; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); 
+        transition: all 0.3s cubic-bezier(.25,.8,.25,1); 
+        margin-bottom: 20px; 
+        position: relative; 
+        color: white; 
+      }
+      
+      .custom-box:hover { 
+        box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22); 
+      }
+      
+      .custom-box .inner { 
+        padding: 15px; 
+        text-align: center; 
+      }
+      
+      .custom-box .inner h3 { 
+        font-size: 38px; 
+        font-weight: bold; 
+        margin: 0 0 10px 0; 
+        white-space: nowrap; 
+        padding: 0; 
+      }
+      
+      .custom-box .inner p { 
+        font-size: 14px; 
+        margin: 0; 
+        font-weight: bold; 
+      }
+      
+      .custom-box .icon { 
+        position: absolute; 
+        right: 10px; 
+        top: 10px; 
+        font-size: 50px; 
+        opacity: 0.3; 
+      }
+      
       .bg-purple-custom { background-color: #8e44ad; }
       .bg-green-custom { background-color: #4CAF50; }
       .bg-orange-custom { background-color: #FFC107; }
       .bg-red-custom { background-color: #E53935; }
-      .box.box-primary > .box-header { background-color: #191970 !important; color: white !important; }
-      .box.box-info > .box-header { background-color: #2c2c8a !important; color: white !important; }
-      .selectize-input, .selectize-dropdown { background-color: #ecf0f1 !important; color: #191970 !important; }
-      .reactable { height: 500px !important; overflow-y: auto !important; }
+      
+      .box.box-primary > .box-header { 
+        background-color: #191970 !important; 
+        color: white !important; 
+      }
+      
+      .box.box-info > .box-header { 
+        background-color: #2c2c8a !important; 
+        color: white !important; 
+      }
+      
+      .selectize-input, 
+      .selectize-dropdown { 
+        background-color: #ecf0f1 !important; 
+        color: #191970 !important; 
+      }
+      
+      .reactable { 
+        height: 500px !important; 
+        overflow-y: auto !important; 
+      }
+      
+      /* Eliminar padding superior del contenedor principal del sidebar */
+      .sidebar {
+        padding-top: 0 !important;
+      }
+      
+      /* Ajustar el contenedor de los logos para que no tenga margen superior */
+      .sidebar .logo-container {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+      }
     ")),
     
-    div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 15px 0;",
+    # Div de logos con margin-top: 0 para asegurar
+    div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 15px 0; margin: 0; margin-top: 0; padding-top: 0;",
         tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_seremi.png", 
                  height = "90px", style = "display: block;"),
         tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_ues_blanco.png", 
