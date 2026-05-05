@@ -351,7 +351,7 @@ server <- function(input, output, session) {
      # Rutas posibles para RETRASADAS
      rutas_retrasadas <- c(
           "data/ges_retrasadas.csv",
-          "ges/listados/data/ges_retrasadas.csv",
+          "ges/listados/data/ges_retrasadas.csv"
      )
      
      # Rutas posibles para EXCEPTUADAS TRANSITORIAS
