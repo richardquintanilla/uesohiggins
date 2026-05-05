@@ -345,25 +345,19 @@ server <- function(input, output, session) {
      # Rutas posibles para VIGENTES
      rutas_vigentes <- c(
           "data/ges_vigentes.csv",
-          "ges/listados/ges_vigentes.csv",
-          "listados/ges_vigentes.csv",
-          "../r_datos/ges/ges_vigentes.csv"
+          "ges/listados/data/ges_vigentes.csv"
      )
      
      # Rutas posibles para RETRASADAS
      rutas_retrasadas <- c(
           "data/ges_retrasadas.csv",
-          "ges/listados/ges_retrasadas.csv",
-          "listados/ges_retrasadas.csv",
-          "../r_datos/ges/ges_retrasadas.csv"
+          "ges/listados/data/ges_retrasadas.csv",
      )
      
      # Rutas posibles para EXCEPTUADAS TRANSITORIAS
      rutas_exceptuadas <- c(
           "data/ges_exceptuadas_transitorias.csv",
-          "ges/listados/ges_exceptuadas_transitorias.csv",
-          "listados/ges_exceptuadas_transitorias.csv",
-          "../r_datos/ges/ges_exceptuadas_transitorias.csv"
+          "ges/listados/data/ges_exceptuadas_transitorias.csv"
      )
      
      # Encontrar archivos
