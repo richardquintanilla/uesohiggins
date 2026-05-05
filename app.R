@@ -223,6 +223,13 @@ ui <- dashboardPage(
       .main-sidebar, .sidebar {padding-top: 0 !important; margin-top: 0 !important; background-color: #191970 !important;}
       .wrapper {background-color: #191970 !important;}
       
+      #clear_filters {background-color: #EEE9E9 !important;color: #191970 !important;}
+      #clear_filters:hover {background-color: #d3d3d3 !important; color: #191970 !important;}
+      .sidebar-menu > li.active > a {border-left-color: #ff0000 !important;}
+      .sidebar-menu > li > a:hover {border-left-color: transparent !important; background-color: #EEE9E9 !important; color: #191970 !important;}
+      .skin-blue .main-header .sidebar-toggle:hover {background-color: #EEE9E9 !important;}
+      
+      
     ")),
           
           div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 0 0; margin: 0; margin-top: 10px;",
@@ -257,8 +264,8 @@ ui <- dashboardPage(
           div(style = "width: 100%; margin-left: 0; margin-right: 0;",
               checkboxInput("oncologicos_check", "🔬 Casos Oncológicos", value = FALSE)),
           
-          actionButton("clear_filters", "Limpiar Filtros", icon = icon("eraser"),
-                       style = "width: 100%; background-color: #95a5a6; color: white; border: none; margin-top: 5px; margin-left: 0; margin-right: 0;")
+          actionButton("clear_filters", "Limpiar filtros", icon = icon("eraser"),
+                       style = "width: 100%; background-color: #95a5a6; color: #191970; border: none; margin-top: 5px; margin-left: 0; margin-right: 0;")
      ),
      
      dashboardBody(
