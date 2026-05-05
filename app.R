@@ -347,7 +347,7 @@ server <- function(input, output, session) {
      # Rutas para los archivos CSV
      rutas_vigentes <- c("data/ges_vigentes.csv", "ges/listados/data/ges_vigentes.csv")
      rutas_retrasadas <- c("data/ges_retrasadas.csv", "ges/listados/data/ges_retrasadas.csv")
-     rutas_exceptuadas <- c("data/ges_exceptuadas.csv", "ges/listados/data/ges_exceptuadas.csv")
+     rutas_exceptuadas <- c("data/ges_exceptuadas_transitorias.csv", "ges/listados/data/ges_exceptuadas_transitorias.csv")
      
      ruta_vigentes <- encontrar_archivo(rutas_vigentes)
      ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
