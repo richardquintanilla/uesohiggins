@@ -193,7 +193,7 @@ ui <- dashboardPage(
       .sidebar-menu > li > a { color: #ecf0f1 !important; background-color: #191970 !important; }
       .sidebar-menu > li > a:hover { background-color: #2c2c8a !important; }
       .skin-blue .main-header .navbar { background-color: #191970 !important; }
-      .skin-blue .main-header .logo { background-color: #0f0f4f !important; color: #ecf0f1 !important; }
+      .skin-blue .main-header .logo { background-color: #191970 !important; }
       .content-wrapper, .right-side { background-color: #f4f4f4; }
       .box, .portlet { border: none !important; box-shadow: none !important; }
       .box.box-primary, .box.box-info { border: none !important; }
