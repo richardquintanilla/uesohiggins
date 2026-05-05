@@ -68,7 +68,6 @@ es_oncologico <- function(texto) {
      return(FALSE)
 }
 
-# Función para encontrar archivo en múltiples rutas
 encontrar_archivo <- function(nombres_posibles) {
      for(ruta in nombres_posibles) {
           if(file.exists(ruta)) {
@@ -78,13 +77,11 @@ encontrar_archivo <- function(nombres_posibles) {
      return(NULL)
 }
 
-# Función para formatear números con separador de miles (.)
 formatear_numero <- function(x) {
      if(is.na(x)) return("")
      format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE)
 }
 
-# Función para crear tabla con reactable
 crear_tabla_detalle <- function(df, col_fijas = NULL, col_destacar = NULL) {
      
      if(is.null(df) || nrow(df) == 0) {
@@ -221,9 +218,14 @@ ui <- dashboardPage(
       .box.box-info > .box-header { background-color: #2c2c8a !important; color: white !important; }
       .selectize-input, .selectize-dropdown { background-color: #ecf0f1 !important; color: #191970 !important; }
       .reactable { height: 500px !important; overflow-y: auto !important; }
+      
+      .sidebar-menu {margin-top: 0 !important; padding-top: 10px !important;}
+      .main-sidebar, .sidebar {padding-top: 0 !important; margin-top: 0 !important; background-color: #191970 !important;}
+      .wrapper {background-color: #191970 !important;}
+      
     ")),
           
-          div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 15px 0;",
+          div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 0 0; margin: 0; margin-top: 10px;",
               tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_seremi.png", 
                        height = "90px", style = "display: block;"),
               tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_ues_blanco.png", 
@@ -339,70 +341,119 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
      
      # ------------------------------------------------------------
-     # 1. CARGA DE DATOS CON DETECCIÓN DE RUTAS MÚLTIPLES
+     # 1. CARGA DE DATOS
      # ------------------------------------------------------------
      
-     # Rutas posibles para VIGENTES
-     rutas_vigentes <- c(
-          "data/ges_vigentes.csv",
-          "ges/listados/data/ges_vigentes.csv"
-     )
+     # Rutas para los archivos CSV
+     rutas_vigentes <- c("data/ges_vigentes.csv", "ges/listados/data/ges_vigentes.csv")
+     rutas_retrasadas <- c("data/ges_retrasadas.csv", "ges/listados/data/ges_retrasadas.csv")
+     rutas_exceptuadas <- c("data/ges_exceptuadas.csv", "ges/listados/data/ges_exceptuadas.csv")
      
-     # Rutas posibles para RETRASADAS
-     rutas_retrasadas <- c(
-          "data/ges_retrasadas.csv",
-          "ges/listados/data/ges_retrasadas.csv"
-     )
-     
-     # Rutas posibles para EXCEPTUADAS TRANSITORIAS
-     rutas_exceptuadas <- c(
-          "data/ges_exceptuadas_transitorias.csv",
-          "ges/listados/data/ges_exceptuadas_transitorias.csv"
-     )
-     
-     # Encontrar archivos
      ruta_vigentes <- encontrar_archivo(rutas_vigentes)
      ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
      ruta_exceptuadas <- encontrar_archivo(rutas_exceptuadas)
      
-     # Verificar si se encontraron los archivos
-     if(is.null(ruta_vigentes)) {
-          stop(paste("No se encontró el archivo de VIGENTES en ninguna de estas rutas:", 
-                     paste(rutas_vigentes, collapse = ", ")))
-     }
+     if(is.null(ruta_vigentes)) stop("No se encontró archivo VIGENTES")
+     if(is.null(ruta_retrasadas)) stop("No se encontró archivo RETRASADAS")
+     if(is.null(ruta_exceptuadas)) stop("No se encontró archivo EXCEPTUADAS")
      
-     if(is.null(ruta_retrasadas)) {
-          stop(paste("No se encontró el archivo de RETRASADAS en ninguna de estas rutas:", 
-                     paste(rutas_retrasadas, collapse = ", ")))
-     }
-     
-     if(is.null(ruta_exceptuadas)) {
-          stop(paste("No se encontró el archivo de EXCEPTUADAS TRANSITORIAS en ninguna de estas rutas:", 
-                     paste(rutas_exceptuadas, collapse = ", ")))
-     }
-     
-     # Mensaje de depuración
      cat("✅ Archivo VIGENTES encontrado en:", ruta_vigentes, "\n")
      cat("✅ Archivo RETRASADAS encontrado en:", ruta_retrasadas, "\n")
      cat("✅ Archivo EXCEPTUADAS encontrado en:", ruta_exceptuadas, "\n")
      
-     # Cargar VIGENTES (SIN RECLASIFICAR - usando la columna del CSV)
-     df_vigentes_raw <- read.csv(ruta_vigentes, stringsAsFactors = FALSE) %>%
-          mutate(
-               fecha_corte = as.Date(fecha_corte),
-               fecha_inicio = as.Date(fecha_inicio),
-               fecha_limite = as.Date(fecha_limite),
-               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
-               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
-               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
-               es_oncologico = sapply(problema_de_salud, es_oncologico)
-          )
+     # Cargar datos (TODOS los históricos en un solo archivo)
+     df_vigentes <- read.csv(ruta_vigentes, stringsAsFactors = FALSE) %>%
+          mutate(fecha_corte = as.Date(fecha_corte))
      
-     # Cargar RETRASADAS
      df_retrasadas <- read.csv(ruta_retrasadas, stringsAsFactors = FALSE) %>%
+          mutate(fecha_corte = as.Date(fecha_corte))
+     
+     df_exceptuadas <- read.csv(ruta_exceptuadas, stringsAsFactors = FALSE) %>%
+          mutate(fecha_corte = as.Date(fecha_corte))
+     
+     # ------------------------------------------------------------
+     # 2. PREPARAR DATOS RECIENTES vs HISTÓRICOS
+     # ------------------------------------------------------------
+     
+     # Encontrar fechas más recientes
+     fecha_max_vig <- max(df_vigentes$fecha_corte, na.rm = TRUE)
+     fecha_max_ret <- max(df_retrasadas$fecha_corte, na.rm = TRUE)
+     fecha_max_exc <- max(df_exceptuadas$fecha_corte, na.rm = TRUE)
+     
+     # Datos RECIENTES (solo última fecha)
+     datos_recientes_vigentes <- df_vigentes %>% filter(fecha_corte == fecha_max_vig)
+     datos_recientes_retrasadas <- df_retrasadas %>% filter(fecha_corte == fecha_max_ret)
+     datos_recientes_exceptuadas <- df_exceptuadas %>% filter(fecha_corte == fecha_max_exc)
+     
+     # Datos HISTÓRICOS (todos) - ya los tenemos en df_vigentes, df_retrasadas, df_exceptuadas
+     datos_historicos_vigentes <- df_vigentes
+     datos_historicos_retrasadas <- df_retrasadas
+     datos_historicos_exceptuadas <- df_exceptuadas
+     
+     cat("\n📊 VIGENTES:", nrow(datos_recientes_vigentes), "recientes |", nrow(datos_historicos_vigentes), "históricos\n")
+     cat("📊 RETRASADAS:", nrow(datos_recientes_retrasadas), "recientes |", nrow(datos_historicos_retrasadas), "históricos\n")
+     cat("📊 EXCEPTUADAS:", nrow(datos_recientes_exceptuadas), "recientes |", nrow(datos_historicos_exceptuadas), "históricos\n")
+     
+     # Para VIGENTES, hacer la clasificación si no viene del CSV
+     # (si el CSV ya tiene clasificacion_avance, no es necesario, pero por seguridad)
+     if(!"clasificacion_avance" %in% names(datos_recientes_vigentes)) {
+          datos_recientes_vigentes <- datos_recientes_vigentes %>%
+               mutate(
+                    fecha_inicio = as.Date(fecha_inicio),
+                    fecha_limite = as.Date(fecha_limite),
+                    dias_totales_plazo = as.numeric(fecha_limite - fecha_inicio),
+                    dias_transcurridos = as.numeric(fecha_corte - fecha_inicio),
+                    porcentaje_avance = if_else(dias_totales_plazo > 0, round((dias_transcurridos / dias_totales_plazo) * 100, 1), 0),
+                    clasificacion_avance = case_when(
+                         porcentaje_avance <= 33 ~ "Tempranas (Avance ≤ 33% del plazo total)",
+                         porcentaje_avance <= 66 ~ "Intermedias (Avance entre 34 y 66% del plazo total)",
+                         TRUE ~ "Avanzadas (Avance > 66% del plazo total)"
+                    ),
+                    responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+                    problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+                    problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+                    es_oncologico = sapply(problema_de_salud, es_oncologico)
+               )
+          
+          datos_historicos_vigentes <- datos_historicos_vigentes %>%
+               mutate(
+                    fecha_inicio = as.Date(fecha_inicio),
+                    fecha_limite = as.Date(fecha_limite),
+                    dias_totales_plazo = as.numeric(fecha_limite - fecha_inicio),
+                    dias_transcurridos = as.numeric(fecha_corte - fecha_inicio),
+                    porcentaje_avance = if_else(dias_totales_plazo > 0, round((dias_transcurridos / dias_totales_plazo) * 100, 1), 0),
+                    clasificacion_avance = case_when(
+                         porcentaje_avance <= 33 ~ "Tempranas (Avance ≤ 33% del plazo total)",
+                         porcentaje_avance <= 66 ~ "Intermedias (Avance entre 34 y 66% del plazo total)",
+                         TRUE ~ "Avanzadas (Avance > 66% del plazo total)"
+                    ),
+                    responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+                    problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+                    problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+                    es_oncologico = sapply(problema_de_salud, es_oncologico)
+               )
+     } else {
+          # Si el CSV ya tiene clasificacion_avance, solo procesar campos adicionales
+          datos_recientes_vigentes <- datos_recientes_vigentes %>%
+               mutate(
+                    responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+                    problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+                    problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+                    es_oncologico = sapply(problema_de_salud, es_oncologico)
+               )
+          
+          datos_historicos_vigentes <- datos_historicos_vigentes %>%
+               mutate(
+                    responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+                    problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+                    problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+                    es_oncologico = sapply(problema_de_salud, es_oncologico)
+               )
+     }
+     
+     # Procesar RETRASADAS
+     datos_recientes_retrasadas <- datos_recientes_retrasadas %>%
           mutate(
-               fecha_corte = as.Date(fecha_corte),
-               fecha_limite = as.Date(fecha_limite),
                responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
                problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
                tipo_retraso = case_when(
@@ -414,10 +465,33 @@ server <- function(input, output, session) {
                es_oncologico = sapply(problema_de_salud, es_oncologico)
           )
      
-     # Cargar EXCEPTUADAS TRANSITORIAS
-     df_exceptuadas_raw <- read.csv(ruta_exceptuadas, stringsAsFactors = FALSE) %>%
+     datos_historicos_retrasadas <- datos_historicos_retrasadas %>%
           mutate(
-               fecha_corte = as.Date(fecha_corte),
+               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+               tipo_retraso = case_when(
+                    dias_atraso <= 7 ~ "Nuevas Vencidas (Retraso ≤ 7 días)",
+                    dias_atraso <= 365 ~ "Vencidas (Retraso entre 8 y 365 días)",
+                    TRUE ~ "Vencidas Prolongadas (Retraso > 365 días)"
+               ),
+               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+               es_oncologico = sapply(problema_de_salud, es_oncologico)
+          )
+     
+     # Procesar EXCEPTUADAS
+     datos_recientes_exceptuadas <- datos_recientes_exceptuadas %>%
+          mutate(
+               fecha_excepcion = as.Date(fecha_excepcion),
+               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
+               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
+               causal_excepcion = if_else(is.na(causal_excepcion), "No especificado", causal_excepcion),
+               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
+               es_oncologico = sapply(problema_de_salud, es_oncologico),
+               periodo_excepcion = if_else(anio_excepcion <= 2024, "Exceptuadas hasta 2024", "Exceptuadas desde 2025")
+          )
+     
+     datos_historicos_exceptuadas <- datos_historicos_exceptuadas %>%
+          mutate(
                fecha_excepcion = as.Date(fecha_excepcion),
                problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
                responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
@@ -428,30 +502,12 @@ server <- function(input, output, session) {
           )
      
      # ------------------------------------------------------------
-     # 2. PREPARACIÓN DATOS POR CORTE
-     # ------------------------------------------------------------
-     
-     fecha_max_vigentes <- max(df_vigentes_raw$fecha_corte, na.rm = TRUE)
-     datos_historicos_vigentes <- df_vigentes_raw
-     datos_recientes_vigentes <- df_vigentes_raw %>% filter(fecha_corte == fecha_max_vigentes)
-     
-     fecha_max_retrasadas <- max(df_retrasadas$fecha_corte, na.rm = TRUE)
-     datos_historicos_retrasadas <- df_retrasadas
-     datos_recientes_retrasadas <- df_retrasadas %>% filter(fecha_corte == fecha_max_retrasadas)
-     
-     # Para EXCEPTUADAS - usar el corte más reciente para tarjetas, top y tabla detalle
-     fecha_max_exceptuadas <- max(df_exceptuadas_raw$fecha_corte, na.rm = TRUE)
-     datos_recientes_exceptuadas <- df_exceptuadas_raw %>% filter(fecha_corte == fecha_max_exceptuadas)
-     # Datos históricos completos para el gráfico de evolución
-     datos_historicos_exceptuadas <- df_exceptuadas_raw
-     
-     # ------------------------------------------------------------
-     # 3. FILTROS (selección única)
+     # 3. FILTROS
      # ------------------------------------------------------------
      
      observe({
-          responsables_ret <- sort(unique(df_retrasadas$responsable_de_garantia))
-          problemas_ret <- sort(unique(df_retrasadas$problema_clasificado))
+          responsables_ret <- sort(unique(datos_recientes_retrasadas$responsable_de_garantia))
+          problemas_ret <- sort(unique(datos_recientes_retrasadas$problema_clasificado))
           
           updateSelectInput(session, "responsable_filter", 
                             choices = c("", responsables_ret),
@@ -461,96 +517,52 @@ server <- function(input, output, session) {
                             selected = "")
      })
      
-     # Reactivos para VIGENTES
+     # Reactivos
      datos_recientes_filt_vig <- reactive({
           df <- datos_recientes_vigentes
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
      datos_historicos_filt_vig <- reactive({
           df <- datos_historicos_vigentes
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
-     # Reactivos para RETRASADAS
      datos_recientes_filt_ret <- reactive({
           df <- datos_recientes_retrasadas
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
      datos_historicos_filt_ret <- reactive({
           df <- datos_historicos_retrasadas
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
-     # Reactivos para EXCEPTUADAS
      datos_recientes_filt_exc <- reactive({
           df <- datos_recientes_exceptuadas
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
      datos_historicos_filt_exc <- reactive({
           df <- datos_historicos_exceptuadas
-          
-          if(input$oncologicos_check) {
-               df <- df %>% filter(es_oncologico == TRUE)
-          }
-          if(input$responsable_filter != "") {
-               df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
-          }
-          if(input$problema_filter != "") {
-               df <- df %>% filter(problema_clasificado == input$problema_filter)
-          }
+          if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
+          if(input$responsable_filter != "") df <- df %>% filter(responsable_de_garantia == input$responsable_filter)
+          if(input$problema_filter != "") df <- df %>% filter(problema_clasificado == input$problema_filter)
           df
      })
      
@@ -564,14 +576,11 @@ server <- function(input, output, session) {
      # 4. TABLAS DE DETALLE
      # ------------------------------------------------------------
      
-     # Tabla detalle VIGENTES (usando clasificacion_avance del CSV)
      output$tabla_detalle_vigentes <- renderReactable({
           datos <- datos_recientes_filt_vig()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -584,30 +593,21 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Tempranas", "Intermedias", "Avanzadas", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, Tempranas, Intermedias, Avanzadas)
           
-          crear_tabla_detalle(
-               tabla_resumen,
-               col_fijas = c("Responsable de Garantía", "Problema de Salud"),
-               col_destacar = "Total"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
-     # Tabla detalle RETRASADAS
      output$tabla_detalle_retrasadas <- renderReactable({
           datos <- datos_recientes_filt_ret()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -620,30 +620,21 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Nuevas Vencidas", "Vencidas", "Vencidas Prolongadas", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, `Nuevas Vencidas`, `Vencidas`, `Vencidas Prolongadas`)
           
-          crear_tabla_detalle(
-               tabla_resumen,
-               col_fijas = c("Responsable de Garantía", "Problema de Salud"),
-               col_destacar = "Total"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
-     # Tabla detalle EXCEPTUADAS
      output$tabla_detalle_exceptuadas <- renderReactable({
           datos <- datos_recientes_filt_exc()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -655,24 +646,18 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(crear_tabla_detalle(NULL))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Inasistencia", "Postergación de la Prestación", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, Inasistencia, `Postergación de la Prestación`)
           
-          crear_tabla_detalle(
-               tabla_resumen,
-               col_fijas = c("Responsable de Garantía", "Problema de Salud"),
-               col_destacar = "Total"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
      # ------------------------------------------------------------
-     # 5. OUTPUTS - VIGENTES
+     # 5. OUTPUTS - VIGENTES (solo las tarjetas y gráficos, el resto están igual)
      # ------------------------------------------------------------
      
      output$tarjeta_total_vigentes <- renderUI({
@@ -925,7 +910,7 @@ server <- function(input, output, session) {
      output$grafico_evolucion_retrasadas <- renderPlotly({
           df_hist <- datos_historicos_filt_ret()
           req(df_hist)
-          if(nrow(df_hist) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos"))
+          if(nrow(df_hist) == 0) return(plotly::plot_ly() %>% layout(title = "No hay datos históricos"))
           
           resultado <- df_hist %>%
                group_by(fecha_corte, tipo_retraso) %>%
@@ -939,6 +924,7 @@ server <- function(input, output, session) {
           totales_por_fecha <- resultado %>%
                group_by(fecha_corte) %>%
                summarise(total = sum(n), .groups = "drop") %>%
+               arrange(fecha_corte) %>%
                mutate(variacion_total = total - lag(total), variacion_total_pct = (total / lag(total) - 1) * 100)
           
           p <- plot_ly()
@@ -1138,7 +1124,7 @@ server <- function(input, output, session) {
      })
      
      output$fecha_corte_header <- renderText({
-          paste("📅 Fecha de corte:", format(fecha_max_retrasadas, "%d-%m-%Y"))
+          paste("📅 Fecha de corte:", format(fecha_max_ret, "%d-%m-%Y"))
      })
 }
 
