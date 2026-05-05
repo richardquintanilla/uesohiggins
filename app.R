@@ -360,10 +360,10 @@ server <- function(input, output, session) {
      
      # Rutas posibles para EXCEPTUADAS TRANSITORIAS
      rutas_exceptuadas <- c(
-          "data/exceptuadas_transitorias.csv",
-          "ges/listados/exceptuadas_transitorias.csv",
-          "listados/exceptuadas_transitorias.csv",
-          "../r_datos/ges/exceptuadas_transitorias.csv"
+          "data/ges_exceptuadas_transitorias.csv",
+          "ges/listados/ges_exceptuadas_transitorias.csv",
+          "listados/ges_exceptuadas_transitorias.csv",
+          "../r_datos/ges/ges_exceptuadas_transitorias.csv"
      )
      
      # Encontrar archivos
