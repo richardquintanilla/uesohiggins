@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES (VERSIÓN OPTIMIZADA - 6 OBJETOS)
+# app.R - Vigilancia GES (VERSIÓN OPTIMIZADA CON CLASIFICACIÓN ÚNICA)
 
 library(shiny)
 library(shinydashboard)
@@ -348,7 +348,7 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
      
      # ------------------------------------------------------------
-     # 1. CARGA DE DATOS (6 OBJETOS: RECIENTE + HISTÓRICO LIGERO)
+     # 1. CARGA DE DATOS
      # ------------------------------------------------------------
      
      # Rutas para archivos RECIENTES (todas las columnas)
@@ -356,7 +356,7 @@ server <- function(input, output, session) {
      rutas_retrasadas_reciente <- c("data/ges_retrasadas_reciente.fst", "ges/listados/data/ges_retrasadas_reciente.fst")
      rutas_exceptuadas_reciente <- c("data/ges_exceptuadas_reciente.fst", "ges/listados/data/ges_exceptuadas_reciente.fst")
      
-     # Rutas para archivos HISTÓRICOS LIGEROS (solo columnas necesarias)
+     # Rutas para archivos HISTÓRICOS LIGEROS (solo para gráficos de evolución)
      rutas_vigentes_historico <- c("data/ges_vigentes_historico_ligero.fst", "ges/listados/data/ges_vigentes_historico_ligero.fst")
      rutas_retrasadas_historico <- c("data/ges_retrasadas_historico_ligero.fst", "ges/listados/data/ges_retrasadas_historico_ligero.fst")
      rutas_exceptuadas_historico <- c("data/ges_exceptuadas_historico_ligero.fst", "ges/listados/data/ges_exceptuadas_historico_ligero.fst")
@@ -366,7 +366,7 @@ server <- function(input, output, session) {
      ruta_retrasadas_reciente <- encontrar_archivo(rutas_retrasadas_reciente)
      ruta_exceptuadas_reciente <- encontrar_archivo(rutas_exceptuadas_reciente)
      
-     # Encontrar archivos HISTÓRICOS LIGEROS
+     # Encontrar archivos HISTÓRICOS
      ruta_vigentes_historico <- encontrar_archivo(rutas_vigentes_historico)
      ruta_retrasadas_historico <- encontrar_archivo(rutas_retrasadas_historico)
      ruta_exceptuadas_historico <- encontrar_archivo(rutas_exceptuadas_historico)
@@ -376,109 +376,64 @@ server <- function(input, output, session) {
      if(is.null(ruta_retrasadas_reciente)) stop("No se encontró archivo RECIENTE de RETRASADAS")
      if(is.null(ruta_exceptuadas_reciente)) stop("No se encontró archivo RECIENTE de EXCEPTUADAS")
      
-     # Verificar archivos HISTÓRICOS LIGEROS
-     if(is.null(ruta_vigentes_historico)) cat("⚠️ No se encontró archivo HISTÓRICO LIGERO de VIGENTES\n")
-     if(is.null(ruta_retrasadas_historico)) cat("⚠️ No se encontró archivo HISTÓRICO LIGERO de RETRASADAS\n")
-     if(is.null(ruta_exceptuadas_historico)) cat("⚠️ No se encontró archivo HISTÓRICO LIGERO de EXCEPTUADAS\n")
-     
-     cat("\n✅ Archivos RECIENTES encontrados\n")
+     cat("✅ Archivos RECIENTES encontrados\n")
      
      # ------------------------------------------------------------
-     # 2. CARGAR DATOS RECIENTES (con todas las columnas)
+     # 2. CARGAR DATOS RECIENTES (ya vienen con clasificación incluida)
      # ------------------------------------------------------------
      
-     vigentes_raw <- read_fst(ruta_vigentes_reciente, as.data.table = FALSE)
-     retrasadas_raw <- read_fst(ruta_retrasadas_reciente, as.data.table = FALSE)
-     exceptuadas_raw <- read_fst(ruta_exceptuadas_reciente, as.data.table = FALSE)
+     datos_recientes_vigentes <- read_fst(ruta_vigentes_reciente, as.data.table = FALSE)
+     datos_recientes_retrasadas <- read_fst(ruta_retrasadas_reciente, as.data.table = FALSE)
+     datos_recientes_exceptuadas <- read_fst(ruta_exceptuadas_reciente, as.data.table = FALSE)
      
-     # Procesar VIGENTES RECIENTES
-     datos_recientes_vigentes <- vigentes_raw %>%
+     # Para RETRASADAS, agregar tipo_retraso (no estaba en el archivo reciente)
+     datos_recientes_retrasadas <- datos_recientes_retrasadas %>%
           mutate(
-               fecha_corte = as.Date(fecha_corte),
-               fecha_inicio = as.Date(fecha_inicio),
-               fecha_limite = as.Date(fecha_limite),
-               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
-               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
-               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
-               es_oncologico = sapply(problema_de_salud, es_oncologico)
-          )
-     
-     # Procesar RETRASADAS RECIENTES
-     datos_recientes_retrasadas <- retrasadas_raw %>%
-          mutate(
-               fecha_corte = as.Date(fecha_corte),
-               fecha_limite = as.Date(fecha_limite),
-               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
-               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
                tipo_retraso = case_when(
                     dias_atraso <= 7 ~ "Nuevas Vencidas (Retraso ≤ 7 días)",
                     dias_atraso <= 365 ~ "Vencidas (Retraso entre 8 y 365 días)",
                     TRUE ~ "Vencidas Prolongadas (Retraso > 365 días)"
-               ),
-               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
-               es_oncologico = sapply(problema_de_salud, es_oncologico)
+               )
           )
      
-     # Procesar EXCEPTUADAS RECIENTES
-     datos_recientes_exceptuadas <- exceptuadas_raw %>%
-          mutate(
-               fecha_corte = as.Date(fecha_corte),
-               fecha_excepcion = as.Date(fecha_excepcion),
-               problema_de_salud = if_else(is.na(problema_de_salud), "No especificado", problema_de_salud),
-               responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
-               causal_excepcion = if_else(is.na(causal_excepcion), "No especificado", causal_excepcion),
-               problema_clasificado = sapply(problema_de_salud, clasificar_problema),
-               es_oncologico = sapply(problema_de_salud, es_oncologico),
-               periodo_excepcion = if_else(anio_excepcion <= 2024, "Exceptuadas hasta 2024", "Exceptuadas desde 2025")
-          )
-     
-     # Liberar memoria de los raw
-     rm(vigentes_raw, retrasadas_raw, exceptuadas_raw)
-     gc()
+     cat("📊 Datos RECIENTES cargados:\n")
+     cat("  VIGENTES:", nrow(datos_recientes_vigentes), "registros\n")
+     cat("  RETRASADAS:", nrow(datos_recientes_retrasadas), "registros\n")
+     cat("  EXCEPTUADAS:", nrow(datos_recientes_exceptuadas), "registros\n")
      
      # ------------------------------------------------------------
-     # 3. CARGAR DATOS HISTÓRICOS LIGEROS (solo para gráficos de evolución)
+     # 3. CARGAR DATOS HISTÓRICOS LIGEROS
      # ------------------------------------------------------------
      
-     # VIGENTES HISTÓRICOS LIGEROS
      if(!is.null(ruta_vigentes_historico)) {
           datos_historicos_vigentes <- read_fst(ruta_vigentes_historico, as.data.table = FALSE)
           cat("✅ Histórico VIGENTES LIGERO cargado:", nrow(datos_historicos_vigentes), "registros\n")
      } else {
-          # Fallback: usar datos recientes
           datos_historicos_vigentes <- datos_recientes_vigentes %>%
-               select(fecha_corte, clasificacion_avance, problema_clasificado, responsable_de_garantia)
+               select(fecha_corte, clasificacion_avance, problema_clasificado, responsable_de_garantia, es_oncologico)
           cat("⚠️ Usando datos RECIENTES como respaldo para histórico VIGENTES\n")
      }
      
-     # RETRASADAS HISTÓRICAS LIGERAS
      if(!is.null(ruta_retrasadas_historico)) {
           datos_historicos_retrasadas <- read_fst(ruta_retrasadas_historico, as.data.table = FALSE)
           cat("✅ Histórico RETRASADAS LIGERO cargado:", nrow(datos_historicos_retrasadas), "registros\n")
      } else {
           datos_historicos_retrasadas <- datos_recientes_retrasadas %>%
-               select(fecha_corte, tipo_retraso, problema_clasificado, responsable_de_garantia)
+               select(fecha_corte, tipo_retraso, problema_clasificado, responsable_de_garantia, es_oncologico)
           cat("⚠️ Usando datos RECIENTES como respaldo para histórico RETRASADAS\n")
      }
      
-     # EXCEPTUADAS HISTÓRICAS LIGERAS
      if(!is.null(ruta_exceptuadas_historico)) {
           datos_historicos_exceptuadas <- read_fst(ruta_exceptuadas_historico, as.data.table = FALSE)
           cat("✅ Histórico EXCEPTUADAS LIGERO cargado:", nrow(datos_historicos_exceptuadas), "registros\n")
      } else {
           datos_historicos_exceptuadas <- datos_recientes_exceptuadas %>%
-               select(fecha_corte, periodo_excepcion, problema_clasificado, responsable_de_garantia)
+               select(fecha_corte, periodo_excepcion, problema_clasificado, responsable_de_garantia, es_oncologico)
           cat("⚠️ Usando datos RECIENTES como respaldo para histórico EXCEPTUADAS\n")
      }
      
-     cat("\n📊 VIGENTES - Recientes:", nrow(datos_recientes_vigentes), "| Históricos:", nrow(datos_historicos_vigentes), "\n")
-     cat("📊 RETRASADAS - Recientes:", nrow(datos_recientes_retrasadas), "| Históricos:", nrow(datos_historicos_retrasadas), "\n")
-     cat("📊 EXCEPTUADAS - Recientes:", nrow(datos_recientes_exceptuadas), "| Históricos:", nrow(datos_historicos_exceptuadas), "\n")
-     
      # Fechas máximas
-     fecha_max_vig <- max(datos_recientes_vigentes$fecha_corte, na.rm = TRUE)
      fecha_max_ret <- max(datos_recientes_retrasadas$fecha_corte, na.rm = TRUE)
-     fecha_max_exc <- max(datos_recientes_exceptuadas$fecha_corte, na.rm = TRUE)
      
      # ------------------------------------------------------------
      # 4. FILTROS
