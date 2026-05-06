@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES
+# app.R - Vigilancia GES (VERSIÓN CON LECTURA FST)
 
 library(shiny)
 library(shinydashboard)
@@ -7,6 +7,7 @@ library(plotly)
 library(lubridate)
 library(reactable)
 library(htmltools)
+library(fst)  # ← NUEVO: para lectura rápida
 
 # ============================================
 # FUNCIONES COMUNES
@@ -229,7 +230,6 @@ ui <- dashboardPage(
       .sidebar-menu > li > a:hover {border-left-color: transparent !important; background-color: #EEE9E9 !important; color: #191970 !important;}
       .skin-blue .main-header .sidebar-toggle:hover {background-color: #EEE9E9 !important;}
       
-      
     ")),
           
           div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 0 0; margin: 0; margin-top: 10px;",
@@ -348,13 +348,25 @@ ui <- dashboardPage(
 server <- function(input, output, session) {
      
      # ------------------------------------------------------------
-     # 1. CARGA DE DATOS
+     # 1. CARGA DE DATOS (USANDO FST)
      # ------------------------------------------------------------
      
-     # Rutas para los archivos CSV
-     rutas_vigentes <- c("data/ges_vigentes.csv", "ges/listados/data/ges_vigentes.csv")
-     rutas_retrasadas <- c("data/ges_retrasadas.csv", "ges/listados/data/ges_retrasadas.csv")
-     rutas_exceptuadas <- c("data/ges_exceptuadas_transitorias.csv", "ges/listados/data/ges_exceptuadas_transitorias.csv")
+     # Rutas para los archivos (priorizar .fst sobre .csv)
+     rutas_vigentes <- c("ges/listados/data/ges_vigentes.fst", "data/ges_vigentes.fst", 
+                         "ges/listados/data/ges_vigentes.csv", "data/ges_vigentes.csv")
+     rutas_retrasadas <- c("ges/listados/data/ges_retrasadas.fst", "data/ges_retrasadas.fst",
+                           "ges/listados/data/ges_retrasadas.csv", "data/ges_retrasadas.csv")
+     rutas_exceptuadas <- c("ges/listados/data/ges_exceptuadas_transitorias.fst", "data/ges_exceptuadas_transitorias.fst",
+                            "ges/listados/data/ges_exceptuadas_transitorias.csv", "data/ges_exceptuadas_transitorias.csv")
+     
+     # Función para leer según extensión
+     leer_datos <- function(ruta) {
+          if(grepl("\\.fst$", ruta)) {
+               return(read_fst(ruta, as.data.table = FALSE))
+          } else {
+               return(read.csv(ruta, stringsAsFactors = FALSE))
+          }
+     }
      
      ruta_vigentes <- encontrar_archivo(rutas_vigentes)
      ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
@@ -368,14 +380,14 @@ server <- function(input, output, session) {
      cat("✅ Archivo RETRASADAS encontrado en:", ruta_retrasadas, "\n")
      cat("✅ Archivo EXCEPTUADAS encontrado en:", ruta_exceptuadas, "\n")
      
-     # Cargar datos (TODOS los históricos en un solo archivo)
-     df_vigentes <- read.csv(ruta_vigentes, stringsAsFactors = FALSE) %>%
+     # Cargar datos usando la función genérica
+     df_vigentes <- leer_datos(ruta_vigentes) %>%
           mutate(fecha_corte = as.Date(fecha_corte))
      
-     df_retrasadas <- read.csv(ruta_retrasadas, stringsAsFactors = FALSE) %>%
+     df_retrasadas <- leer_datos(ruta_retrasadas) %>%
           mutate(fecha_corte = as.Date(fecha_corte))
      
-     df_exceptuadas <- read.csv(ruta_exceptuadas, stringsAsFactors = FALSE) %>%
+     df_exceptuadas <- leer_datos(ruta_exceptuadas) %>%
           mutate(fecha_corte = as.Date(fecha_corte))
      
      # ------------------------------------------------------------
@@ -402,7 +414,6 @@ server <- function(input, output, session) {
      cat("📊 EXCEPTUADAS:", nrow(datos_recientes_exceptuadas), "recientes |", nrow(datos_historicos_exceptuadas), "históricos\n")
      
      # Para VIGENTES, hacer la clasificación si no viene del CSV
-     # (si el CSV ya tiene clasificacion_avance, no es necesario, pero por seguridad)
      if(!"clasificacion_avance" %in% names(datos_recientes_vigentes)) {
           datos_recientes_vigentes <- datos_recientes_vigentes %>%
                mutate(
@@ -440,7 +451,6 @@ server <- function(input, output, session) {
                     es_oncologico = sapply(problema_de_salud, es_oncologico)
                )
      } else {
-          # Si el CSV ya tiene clasificacion_avance, solo procesar campos adicionales
           datos_recientes_vigentes <- datos_recientes_vigentes %>%
                mutate(
                     responsable_de_garantia = if_else(is.na(responsable_de_garantia), "No especificado", responsable_de_garantia),
@@ -664,7 +674,7 @@ server <- function(input, output, session) {
      })
      
      # ------------------------------------------------------------
-     # 5. OUTPUTS - VIGENTES (solo las tarjetas y gráficos, el resto están igual)
+     # 5. OUTPUTS - VIGENTES
      # ------------------------------------------------------------
      
      output$tarjeta_total_vigentes <- renderUI({
