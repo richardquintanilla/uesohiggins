@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES (VERSIÓN OPTIMIZADA CON CLASIFICACIÓN ÚNICA)
+# app.R - Vigilancia GES (VERSIÓN LIMPIA - SIN CLASIFICACIÓN REDUNDANTE)
 
 library(shiny)
 library(shinydashboard)
@@ -10,65 +10,10 @@ library(htmltools)
 library(fst)
 
 # ============================================
-# FUNCIONES COMUNES
+# FUNCIONES COMUNES (solo las necesarias)
 # ============================================
 
-clasificacion_problemas <- list(
-     "^Catarátas" = "Cataratas",
-     "^Endoprótesis" = "Endoprótesis de Cadera",
-     "^Vicios de Refracción" = "Vicios de Refracción",
-     "^Cáncer de Mama" = "Cáncer de Mama",
-     "^Cáncer de Testículo" = "Cáncer de Testículo",
-     "^Cáncer Cervicouterino" = "Cáncer Cervicouterino",
-     "^Cáncer Colorectal" = "Cáncer Colorrectal",
-     "^Cáncer de Próstata" = "Cáncer de Próstata",
-     "^Cáncer de Pulmón" = "Cáncer de Pulmón",
-     "^Cáncer de Ovario" = "Cáncer de Ovario",
-     "^Cáncer de Tiroides" = "Cáncer de Tiroides",
-     "^Cáncer Gástrico" = "Cáncer Gástrico",
-     "^Cáncer Renal" = "Cáncer Renal",
-     "^Cáncer Vesical" = "Cáncer Vesical",
-     "^Artrosis de Cadera y/o Rodilla" = "Artrosis de Cadera/Rodilla",
-     "^Leucemia Adulto" = "Leucemia Adulto",
-     "Diabetes Mellitus Tipo 1 Diabetes Mellitus I" = "Diabetes Mellitus Tipo 1",
-     "^Disrrafias Espinales" = "Disrafias Espinales",
-     "^Artritis Reumatoide" = "Artritis Reumatoide",
-     "Enfermedad Pulmonar Obstructiva" = "Enfermedad Pulmonar Obstructiva",
-     "^Hipertensión Arterial" = "Hipertensión Arterial",
-     "Infarto Agudo del Miocardio" = "Infarto Agudo al Miocardio",
-     "^Ataque Cerebrovascular" = "Ataque Cerebrovascular",
-     "ENFERMEDAD RENAL CRÓNICA ETAPA 4 Y 5" = "Enfermedad Renal Crónica Etapa 4 y 5",
-     "Tratamiento Erradicación HELICOBACTER PYLORI" = "Tratamiento Erradicación Helicobacter Pylori"
-)
-
-oncologicos_problemas <- list(
-     "^Cáncer",
-     "Alivio del dolor",
-     "^Leucemia",
-     "^Linfoma",
-     "Osteosarcoma",
-     "Mieloma múltiple"
-)
-
-clasificar_problema <- function(texto) {
-     if(is.na(texto) || texto == "No especificado" || texto == "") return(texto)
-     for(pattern in names(clasificacion_problemas)) {
-          if(grepl(pattern, texto, ignore.case = TRUE)) {
-               return(clasificacion_problemas[[pattern]])
-          }
-     }
-     if(grepl("Cáncer", texto, ignore.case = TRUE)) return("Cáncer (otros)")
-     return(texto)
-}
-
-es_oncologico <- function(texto) {
-     if(is.na(texto)) return(FALSE)
-     for(pattern in oncologicos_problemas) {
-          if(grepl(pattern, texto, ignore.case = TRUE)) return(TRUE)
-     }
-     return(FALSE)
-}
-
+# Función para encontrar archivo en múltiples rutas
 encontrar_archivo <- function(nombres_posibles) {
      for(ruta in nombres_posibles) {
           if(file.exists(ruta)) {
@@ -78,11 +23,13 @@ encontrar_archivo <- function(nombres_posibles) {
      return(NULL)
 }
 
+# Función para formatear números con separador de miles (.)
 formatear_numero <- function(x) {
      if(is.na(x)) return("")
      format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE)
 }
 
+# Función para crear tabla con reactable
 crear_tabla_detalle <- function(df, col_fijas = NULL, col_destacar = NULL) {
      
      if(is.null(df) || nrow(df) == 0) {
