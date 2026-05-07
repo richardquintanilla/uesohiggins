@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES (VERSIÓN LIMPIA - SIN CLASIFICACIÓN REDUNDANTE)
+# app.R - Vigilancia GES (VERSIÓN FINAL CON DESCARGA FILTRADA)
 
 library(shiny)
 library(shinydashboard)
@@ -8,12 +8,12 @@ library(lubridate)
 library(reactable)
 library(htmltools)
 library(fst)
+library(openxlsx)
 
 # ============================================
-# FUNCIONES COMUNES (solo las necesarias)
+# FUNCIONES COMUNES
 # ============================================
 
-# Función para encontrar archivo en múltiples rutas
 encontrar_archivo <- function(nombres_posibles) {
      for(ruta in nombres_posibles) {
           if(file.exists(ruta)) {
@@ -23,13 +23,11 @@ encontrar_archivo <- function(nombres_posibles) {
      return(NULL)
 }
 
-# Función para formatear números con separador de miles (.)
 formatear_numero <- function(x) {
      if(is.na(x)) return("")
      format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE)
 }
 
-# Función para crear tabla con reactable
 crear_tabla_detalle <- function(df, col_fijas = NULL, col_destacar = NULL) {
      
      if(is.null(df) || nrow(df) == 0) {
@@ -189,27 +187,29 @@ ui <- dashboardPage(
           sidebarMenu(
                menuItem("✅ GES Vigentes", tabName = "vigentes"),
                menuItem("⚠️ GES Retrasadas", tabName = "retrasadas"),
-               menuItem("⏸️ GES Exceptuadas Transitorias", tabName = "exceptuadas")
+               menuItem("⏸️ GES Exceptuadas Transitorias", tabName = "exceptuadas"),
+               menuItem("💾 Descarga de Datos", tabName = "descarga")
+               
           ),
           
           br(),
           hr(),
           h4("Filtros", style = "padding-left: 15px; color: #ecf0f1; font-weight: normal; margin-bottom: 10px;"),
           
-          selectInput("responsable_filter", "Responsable de Garantía:",
+          selectInput("responsable_filter", "🏨 Responsable de Garantía:",
                       choices = c(""), 
                       selected = "",
                       multiple = FALSE,
                       selectize = TRUE),
           
-          selectInput("problema_filter", "Problema de Salud:",
+          selectInput("problema_filter", "🩺 Problema de Salud:",
                       choices = c(""), 
                       selected = "",
                       multiple = FALSE,
                       selectize = TRUE),
           
           div(style = "width: 100%; margin-left: 0; margin-right: 0;",
-              checkboxInput("oncologicos_check", "🔬 Casos Oncológicos", value = FALSE)),
+              checkboxInput("oncologicos_check", "🎗️ Casos Oncológicos", value = FALSE)),
           
           actionButton("clear_filters", "Limpiar filtros", icon = icon("eraser"),
                        style = "width: 100%; background-color: #95a5a6; color: #191970; border: none; margin-top: 5px; margin-left: 0; margin-right: 0;")
@@ -283,6 +283,25 @@ ui <- dashboardPage(
                             box(title = "Evolución Histórica de GES Exceptuadas Transitorias", status = "primary", solidHeader = TRUE, width = 12,
                                 plotlyOutput("grafico_evolucion_exceptuadas", height = "500px"))
                        )
+               ),
+               
+               tabItem(tabName = "descarga",
+                       fluidRow(
+                            box(title = "Descarga de Datos", status = "primary", solidHeader = TRUE, width = 12,
+                                div(style = "text-align: center;",
+                                    icon("database", class = "fa-4x", style = "color: #191970;"),
+                                    br(),
+                                    p("Los filtros seleccionados se aplicarán a la descarga de datos filtrados."),
+                                    br(),
+                                    downloadButton("download_all", "Datos Completos", 
+                                                   class = "btn-primary", 
+                                                   style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white; margin-right: 10px;"),
+                                    downloadButton("download_filtered", "Datos Filtrados", 
+                                                   class = "btn-success", 
+                                                   style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white;")
+                                )
+                            )
+                       )
                )
           )
      )
@@ -298,22 +317,21 @@ server <- function(input, output, session) {
      # 1. CARGA DE DATOS
      # ------------------------------------------------------------
      
-     # Rutas para archivos RECIENTES (todas las columnas)
-     rutas_vigentes_reciente <- c("data/ges_vigentes_reciente.fst", "ges/listados/data/ges_vigentes_reciente.fst")
-     rutas_retrasadas_reciente <- c("data/ges_retrasadas_reciente.fst", "ges/listados/data/ges_retrasadas_reciente.fst")
-     rutas_exceptuadas_reciente <- c("data/ges_exceptuadas_reciente.fst", "ges/listados/data/ges_exceptuadas_reciente.fst")
+     # Rutas para archivos RECIENTES
+     rutas_vigentes_reciente <- c("ges/listados/data/ges_vigentes_reciente.fst", "data/ges_vigentes_reciente.fst")
+     rutas_retrasadas_reciente <- c("ges/listados/data/ges_retrasadas_reciente.fst", "data/ges_retrasadas_reciente.fst")
+     rutas_exceptuadas_reciente <- c("ges/listados/data/ges_exceptuadas_reciente.fst", "data/ges_exceptuadas_reciente.fst")
      
-     # Rutas para archivos HISTÓRICOS LIGEROS (solo para gráficos de evolución)
-     rutas_vigentes_historico <- c("data/ges_vigentes_historico_ligero.fst", "ges/listados/data/ges_vigentes_historico_ligero.fst")
-     rutas_retrasadas_historico <- c("data/ges_retrasadas_historico_ligero.fst", "ges/listados/data/ges_retrasadas_historico_ligero.fst")
-     rutas_exceptuadas_historico <- c("data/ges_exceptuadas_historico_ligero.fst", "ges/listados/data/ges_exceptuadas_historico_ligero.fst")
+     # Rutas para archivos HISTÓRICOS LIGEROS
+     rutas_vigentes_historico <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", "data/ges_vigentes_historico_ligero.fst")
+     rutas_retrasadas_historico <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", "data/ges_retrasadas_historico_ligero.fst")
+     rutas_exceptuadas_historico <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", "data/ges_exceptuadas_historico_ligero.fst")
      
-     # Encontrar archivos RECIENTES
+     # Encontrar archivos
      ruta_vigentes_reciente <- encontrar_archivo(rutas_vigentes_reciente)
      ruta_retrasadas_reciente <- encontrar_archivo(rutas_retrasadas_reciente)
      ruta_exceptuadas_reciente <- encontrar_archivo(rutas_exceptuadas_reciente)
      
-     # Encontrar archivos HISTÓRICOS
      ruta_vigentes_historico <- encontrar_archivo(rutas_vigentes_historico)
      ruta_retrasadas_historico <- encontrar_archivo(rutas_retrasadas_historico)
      ruta_exceptuadas_historico <- encontrar_archivo(rutas_exceptuadas_historico)
@@ -326,22 +344,24 @@ server <- function(input, output, session) {
      cat("✅ Archivos RECIENTES encontrados\n")
      
      # ------------------------------------------------------------
-     # 2. CARGAR DATOS RECIENTES (ya vienen con clasificación incluida)
+     # 2. CARGAR DATOS RECIENTES
      # ------------------------------------------------------------
      
      datos_recientes_vigentes <- read_fst(ruta_vigentes_reciente, as.data.table = FALSE)
      datos_recientes_retrasadas <- read_fst(ruta_retrasadas_reciente, as.data.table = FALSE)
      datos_recientes_exceptuadas <- read_fst(ruta_exceptuadas_reciente, as.data.table = FALSE)
      
-     # Para RETRASADAS, agregar tipo_retraso (no estaba en el archivo reciente)
-     datos_recientes_retrasadas <- datos_recientes_retrasadas %>%
-          mutate(
-               tipo_retraso = case_when(
-                    dias_atraso <= 7 ~ "Nuevas Vencidas (Retraso ≤ 7 días)",
-                    dias_atraso <= 365 ~ "Vencidas (Retraso entre 8 y 365 días)",
-                    TRUE ~ "Vencidas Prolongadas (Retraso > 365 días)"
+     # Para RETRASADAS, agregar tipo_retraso
+     if(!"tipo_retraso" %in% names(datos_recientes_retrasadas)) {
+          datos_recientes_retrasadas <- datos_recientes_retrasadas %>%
+               mutate(
+                    tipo_retraso = case_when(
+                         dias_atraso <= 7 ~ "Nuevas Vencidas (Retraso ≤ 7 días)",
+                         dias_atraso <= 365 ~ "Vencidas (Retraso entre 8 y 365 días)",
+                         TRUE ~ "Vencidas Prolongadas (Retraso > 365 días)"
+                    )
                )
-          )
+     }
      
      cat("📊 Datos RECIENTES cargados:\n")
      cat("  VIGENTES:", nrow(datos_recientes_vigentes), "registros\n")
@@ -358,7 +378,7 @@ server <- function(input, output, session) {
      } else {
           datos_historicos_vigentes <- datos_recientes_vigentes %>%
                select(fecha_corte, clasificacion_avance, problema_clasificado, responsable_de_garantia, es_oncologico)
-          cat("⚠️ Usando datos RECIENTES como respaldo para histórico VIGENTES\n")
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
      if(!is.null(ruta_retrasadas_historico)) {
@@ -367,7 +387,7 @@ server <- function(input, output, session) {
      } else {
           datos_historicos_retrasadas <- datos_recientes_retrasadas %>%
                select(fecha_corte, tipo_retraso, problema_clasificado, responsable_de_garantia, es_oncologico)
-          cat("⚠️ Usando datos RECIENTES como respaldo para histórico RETRASADAS\n")
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
      if(!is.null(ruta_exceptuadas_historico)) {
@@ -376,10 +396,9 @@ server <- function(input, output, session) {
      } else {
           datos_historicos_exceptuadas <- datos_recientes_exceptuadas %>%
                select(fecha_corte, periodo_excepcion, problema_clasificado, responsable_de_garantia, es_oncologico)
-          cat("⚠️ Usando datos RECIENTES como respaldo para histórico EXCEPTUADAS\n")
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
-     # Fechas máximas
      fecha_max_ret <- max(datos_recientes_retrasadas$fecha_corte, na.rm = TRUE)
      
      # ------------------------------------------------------------
@@ -1005,6 +1024,102 @@ server <- function(input, output, session) {
                        yaxis = list(title = "Cantidad de Garantías Exceptuadas", tickformat = ".0s"),
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
+     
+     # ------------------------------------------------------------
+     # 9. DOWNLOAD - DATOS COMPLETOS (SIN DATOS SENSIBLES)
+     # ------------------------------------------------------------
+     
+     output$download_all <- downloadHandler(
+          filename = function() {
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx")
+          },
+          content = function(file) {
+               # Usar los archivos SIN datos sensibles
+               vigentes <- read_fst("ges/listados/data/ges_vigentes_historico_ligero.fst", as.data.table = FALSE)
+               retrasadas <- read_fst("ges/listados/data/ges_retrasadas_historico_ligero.fst", as.data.table = FALSE)
+               exceptuadas <- read_fst("ges/listados/data/ges_exceptuadas_historico_ligero.fst", as.data.table = FALSE)
+               
+               # Renombrar columnas
+               names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
+               names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
+               names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
+               
+               # Crear Excel
+               wb <- openxlsx::createWorkbook()
+               openxlsx::addWorksheet(wb, "GES Vigentes")
+               openxlsx::addWorksheet(wb, "GES Retrasadas")
+               openxlsx::addWorksheet(wb, "GES Exceptuadas")
+               
+               openxlsx::writeData(wb, "GES Vigentes", vigentes)
+               openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
+               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
+               
+               openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
+               
+               openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+          }
+     )
+     
+     # ------------------------------------------------------------
+     # 10. DOWNLOAD - DATOS FILTRADOS (SEGÚN FILTROS ACTUALES)
+     # ------------------------------------------------------------
+     
+     output$download_filtered <- downloadHandler(
+          filename = function() {
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_filtrado.xlsx")
+          },
+          content = function(file) {
+               # Obtener los datos actualmente filtrados
+               vigentes_filt <- datos_recientes_filt_vig()
+               retrasadas_filt <- datos_recientes_filt_ret()
+               exceptuadas_filt <- datos_recientes_filt_exc()
+               
+               # Verificar si hay datos
+               if(nrow(vigentes_filt) == 0 && nrow(retrasadas_filt) == 0 && nrow(exceptuadas_filt) == 0) {
+                    wb <- openxlsx::createWorkbook()
+                    openxlsx::addWorksheet(wb, "Sin datos")
+                    openxlsx::writeData(wb, "Sin datos", data.frame(Mensaje = "No hay datos con los filtros seleccionados"))
+                    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+                    return()
+               }
+               
+               # Preparar datos para exportar
+               vigentes_export <- vigentes_filt %>%
+                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                           clasificacion_avance, es_oncologico)
+               
+               retrasadas_export <- retrasadas_filt %>%
+                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                           tipo_retraso, dias_atraso, es_oncologico)
+               
+               exceptuadas_export <- exceptuadas_filt %>%
+                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                           periodo_excepcion, causal_excepcion, es_oncologico)
+               
+               # Renombrar columnas
+               names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
+               names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
+               names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
+               
+               # Crear Excel
+               wb <- openxlsx::createWorkbook()
+               openxlsx::addWorksheet(wb, "GES Vigentes (filtrados)")
+               openxlsx::addWorksheet(wb, "GES Retrasadas (filtrados)")
+               openxlsx::addWorksheet(wb, "GES Exceptuadas (filtrados)")
+               
+               openxlsx::writeData(wb, "GES Vigentes (filtrados)", vigentes_export)
+               openxlsx::writeData(wb, "GES Retrasadas (filtrados)", retrasadas_export)
+               openxlsx::writeData(wb, "GES Exceptuadas (filtrados)", exceptuadas_export)
+               
+               openxlsx::setColWidths(wb, "GES Vigentes (filtrados)", cols = 1:ncol(vigentes_export), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Retrasadas (filtrados)", cols = 1:ncol(retrasadas_export), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Exceptuadas (filtrados)", cols = 1:ncol(exceptuadas_export), widths = "auto")
+               
+               openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+          }
+     )
      
      output$fecha_corte_header <- renderText({
           paste("📅 Fecha de corte:", format(fecha_max_ret, "%d-%m-%Y"))
