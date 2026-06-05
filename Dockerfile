@@ -1,7 +1,7 @@
 FROM rocker/shiny:4.4.0
 
 # Instalar SOLO lo que realmente usa app.R
-RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'lubridate', 'reactable', 'htmltools', 'fst', 'openxlsx', 'data.table'))"
+RUN R -e "install.packages(c('shinydashboard', 'tidyverse', 'plotly', 'lubridate', 'reactable', 'htmltools', 'fst', 'openxlsx', 'data.table', 'janitor'))"
 
 RUN mkdir -p /srv/shiny-server
 
