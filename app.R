@@ -681,58 +681,6 @@ server <- function(input, output, session) {
           )
      })
      
-     # TABLA DE DÍAS AVANZADAS - VERSIÓN REACTIVA PARA DESCARGA
-     tabla_dias_avanzadas_data <- reactive({
-          datos_avanzadas <- datos_recientes_filt_vig() %>%
-               filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-          
-          req(datos_avanzadas)
-          
-          if(nrow(datos_avanzadas) == 0) {
-               return(NULL)
-          }
-          
-          if(!"nombre_garantia" %in% names(datos_avanzadas)) {
-               datos_avanzadas <- datos_avanzadas %>%
-                    mutate(nombre_garantia = problema_clasificado)
-          }
-          
-          tbl_vigentes <- datos_avanzadas %>%
-               dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, dias_que_faltan) %>% 
-               dplyr::count() %>% 
-               dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-               tidyr::complete(dias_que_faltan = tidyr::full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-               dplyr::arrange(dias_que_faltan) %>% 
-               tidyr::pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>% 
-               dplyr::arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-               janitor::adorn_totals(where = "col", name = "total") %>% 
-               dplyr::mutate(total = total - dias_totales_plazo) %>% 
-               dplyr::relocate(total, .after = dias_totales_plazo)
-          
-          if(nrow(tbl_vigentes) == 0) {
-               return(NULL)
-          }
-          
-          for(dia in names(tbl_vigentes)) {
-               if(suppressWarnings(!is.na(as.numeric(dia)))) {
-                    names(tbl_vigentes)[names(tbl_vigentes) == dia] <- paste0("Día ", dia)
-               }
-          }
-          
-          names(tbl_vigentes)[names(tbl_vigentes) == "responsable_de_garantia"] <- "Responsable de Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "problema_clasificado"] <- "Problema de Salud"
-          names(tbl_vigentes)[names(tbl_vigentes) == "nombre_garantia"] <- "Nombre Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Días Totales Plazo"
-          names(tbl_vigentes)[names(tbl_vigentes) == "total"] <- "Total"
-          
-          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Días Totales Plazo", "Total")
-          columnas_dias <- names(tbl_vigentes)[grepl("^Día ", names(tbl_vigentes))]
-          otras_columnas <- names(tbl_vigentes)[!names(tbl_vigentes) %in% c(columnas_fijas, columnas_dias)]
-          tbl_vigentes <- tbl_vigentes[, c(columnas_fijas, columnas_dias, otras_columnas)]
-          
-          return(tbl_vigentes)
-     })
-     
      output$tabla_detalle_retrasadas <- renderReactable({
           datos <- datos_recientes_filt_ret()
           req(datos)
@@ -1263,155 +1211,195 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 9. DOWNLOAD - DATOS COMPLETOS ----
-     
+     # 9. DOWNLOAD - DATOS COMPLETOS (orden corregido y robusto)
      output$download_all <- downloadHandler(
           filename = function() { 
                paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx") 
           },
           content = function(file) {
-               # Usar los archivos SIN datos sensibles
+               # Leer archivos originales (sin datos sensibles)
                vigentes <- read_fst("ges/listados/data/ges_vigentes_historico_ligero.fst", as.data.table = FALSE)
                retrasadas <- read_fst("ges/listados/data/ges_retrasadas_historico_ligero.fst", as.data.table = FALSE)
                exceptuadas <- read_fst("ges/listados/data/ges_exceptuadas_historico_ligero.fst", as.data.table = FALSE)
                
-               # Generar tabla de días avanzados con datos completos (sin filtros)
-               datos_completos_avanzadas <- datos_recientes_vigentes %>%
-                    filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-               
-               if(!"nombre_garantia" %in% names(datos_completos_avanzadas)) {
-                    datos_completos_avanzadas <- datos_completos_avanzadas %>%
-                         mutate(nombre_garantia = problema_clasificado)
-               }
-               
-               tbl_avanzadas_completo <- NULL
-               if(nrow(datos_completos_avanzadas) > 0) {
-                    tbl_avanzadas_completo <- datos_completos_avanzadas %>%
-                         dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, dias_que_faltan) %>% 
-                         dplyr::count() %>% 
-                         dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-                         tidyr::complete(dias_que_faltan = tidyr::full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-                         dplyr::arrange(dias_que_faltan) %>% 
-                         tidyr::pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>% 
-                         dplyr::arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-                         janitor::adorn_totals(where = "col", name = "total") %>% 
-                         dplyr::mutate(total = total - dias_totales_plazo) %>% 
-                         dplyr::relocate(total, .after = dias_totales_plazo)
+               # --- Tabla de Avanzadas por días (con datos completos) ---
+               tbl_avanzadas_completo <- tryCatch({
+                    datos_avanzadas <- datos_recientes_vigentes %>%
+                         filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
                     
-                    # Renombrar columnas
-                    for(dia in names(tbl_avanzadas_completo)) {
-                         if(suppressWarnings(!is.na(as.numeric(dia)))) {
-                              names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == dia] <- paste0("Día ", dia)
+                    if(nrow(datos_avanzadas) == 0) {
+                         NULL
+                    } else {
+                         if(!"nombre_garantia" %in% names(datos_avanzadas)) {
+                              datos_avanzadas <- datos_avanzadas %>%
+                                   mutate(nombre_garantia = problema_clasificado)
                          }
+                         
+                         tbl <- datos_avanzadas %>%
+                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, dias_que_faltan) %>% 
+                              count() %>% 
+                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
+                              complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
+                              arrange(dias_que_faltan) %>% 
+                              pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>% 
+                              arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
+                              janitor::adorn_totals(where = "col", name = "total") %>% 
+                              mutate(total = total - dias_totales_plazo) %>%
+                              relocate(total, .after = dias_totales_plazo)
+                         
+                         # Renombrar columnas de días
+                         for(dia in names(tbl)) {
+                              if(suppressWarnings(!is.na(as.numeric(dia)))) {
+                                   names(tbl)[names(tbl) == dia] <- paste0("Día ", dia)
+                              }
+                         }
+                         
+                         names(tbl)[names(tbl) == "responsable_de_garantia"] <- "Responsable de Garantía"
+                         names(tbl)[names(tbl) == "problema_clasificado"] <- "Problema de Salud"
+                         names(tbl)[names(tbl) == "nombre_garantia"] <- "Nombre Garantía"
+                         names(tbl)[names(tbl) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                         names(tbl)[names(tbl) == "total"] <- "Total"
+                         
+                         as.data.frame(tbl)  # eliminar tibble attributes
                     }
-                    
-                    names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == "responsable_de_garantia"] <- "Responsable de Garantía"
-                    names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == "problema_clasificado"] <- "Problema de Salud"
-                    names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == "nombre_garantia"] <- "Nombre Garantía"
-                    names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == "dias_totales_plazo"] <- "Días Totales Plazo"
-                    names(tbl_avanzadas_completo)[names(tbl_avanzadas_completo) == "total"] <- "Total"
-               }
+               }, error = function(e) {
+                    warning("Error generando tabla de Avanzadas: ", e$message)
+                    NULL
+               })
                
-               # Renombrar columnas para los otros dataframes
+               # Renombrar columnas de los dataframes principales
                names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
                names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
                names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
                
-               # Crear Excel
+               # Crear Excel en el orden solicitado
                wb <- openxlsx::createWorkbook()
+               
                openxlsx::addWorksheet(wb, "GES Vigentes")
+               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
                openxlsx::addWorksheet(wb, "GES Retrasadas")
                openxlsx::addWorksheet(wb, "GES Exceptuadas")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
                
                openxlsx::writeData(wb, "GES Vigentes", vigentes)
-               openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
-               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
-               
                if(!is.null(tbl_avanzadas_completo) && nrow(tbl_avanzadas_completo) > 0) {
                     openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas_completo)
                } else {
                     openxlsx::writeData(wb, "GES Avanzadas por Días", data.frame(Mensaje = "No hay casos en categoría Avanzadas"))
                }
+               openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
+               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
                
+               # Ajustar anchos de columnas
                openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes), widths = "auto")
-               openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
-               openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
-               
                if(!is.null(tbl_avanzadas_completo) && nrow(tbl_avanzadas_completo) > 0) {
                     openxlsx::setColWidths(wb, "GES Avanzadas por Días", cols = 1:ncol(tbl_avanzadas_completo), widths = "auto")
                }
+               openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
                
                openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
           }
      )
      
-     # 10. DOWNLOAD - DATOS FILTRADOS ----
-     
+     # 10. DOWNLOAD - DATOS FILTRADOS (corregido y robusto)
      output$download_filtered <- downloadHandler(
           filename = function() { 
                paste0(format(Sys.Date(), "%y%m%d"), "_ges_filtrado.xlsx") 
           },
           content = function(file) {
-               # Obtener los datos actualmente filtrados
+               # Obtener datos filtrados actuales
                vigentes_filt <- datos_recientes_filt_vig()
                retrasadas_filt <- datos_recientes_filt_ret()
                exceptuadas_filt <- datos_recientes_filt_exc()
                
-               # Obtener la tabla de días avanzados filtrada
-               tbl_avanzadas_filt <- tabla_dias_avanzadas_data()
+               # --- Tabla de Avanzadas por días con los filtros actuales ---
+               tbl_avanzadas_filt <- tryCatch({
+                    datos_avanzadas <- vigentes_filt %>%
+                         filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
+                    
+                    if(nrow(datos_avanzadas) == 0) {
+                         NULL
+                    } else {
+                         if(!"nombre_garantia" %in% names(datos_avanzadas)) {
+                              datos_avanzadas <- datos_avanzadas %>%
+                                   mutate(nombre_garantia = problema_clasificado)
+                         }
+                         
+                         tbl <- datos_avanzadas %>%
+                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, dias_que_faltan) %>% 
+                              count() %>% 
+                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
+                              complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
+                              arrange(dias_que_faltan) %>% 
+                              pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>% 
+                              arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
+                              janitor::adorn_totals(where = "col", name = "total") %>% 
+                              mutate(total = total - dias_totales_plazo) %>%
+                              relocate(total, .after = dias_totales_plazo)
+                         
+                         for(dia in names(tbl)) {
+                              if(suppressWarnings(!is.na(as.numeric(dia)))) {
+                                   names(tbl)[names(tbl) == dia] <- paste0("Día ", dia)
+                              }
+                         }
+                         
+                         names(tbl)[names(tbl) == "responsable_de_garantia"] <- "Responsable de Garantía"
+                         names(tbl)[names(tbl) == "problema_clasificado"] <- "Problema de Salud"
+                         names(tbl)[names(tbl) == "nombre_garantia"] <- "Nombre Garantía"
+                         names(tbl)[names(tbl) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                         names(tbl)[names(tbl) == "total"] <- "Total"
+                         
+                         as.data.frame(tbl)
+                    }
+               }, error = function(e) {
+                    warning("Error generando tabla de Avanzadas filtrada: ", e$message)
+                    NULL
+               })
                
-               # Verificar si hay datos
-               if(nrow(vigentes_filt) == 0 && nrow(retrasadas_filt) == 0 && nrow(exceptuadas_filt) == 0 && is.null(tbl_avanzadas_filt)) {
-                    wb <- openxlsx::createWorkbook()
-                    openxlsx::addWorksheet(wb, "Sin datos")
-                    openxlsx::writeData(wb, "Sin datos", data.frame(Mensaje = "No hay datos con los filtros seleccionados"))
-                    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
-                    return()
-               }
-               
-               # Preparar datos para exportar
+               # Preparar dataframes de exportación (solo columnas relevantes)
                vigentes_export <- vigentes_filt %>% 
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           clasificacion_avance, es_oncologico)
+                           clasificacion_avance, es_oncologico) %>%
+                    as.data.frame()
                
                retrasadas_export <- retrasadas_filt %>% 
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           tipo_retraso, dias_atraso, es_oncologico)
+                           tipo_retraso, dias_atraso, es_oncologico) %>%
+                    as.data.frame()
                
                exceptuadas_export <- exceptuadas_filt %>% 
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           periodo_excepcion, causal_excepcion, es_oncologico)
+                           periodo_excepcion, causal_excepcion, es_oncologico) %>%
+                    as.data.frame()
                
                # Renombrar columnas
                names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
                names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
                names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
                
-               # Crear Excel
+               # Crear Excel en el orden solicitado
                wb <- openxlsx::createWorkbook()
-               openxlsx::addWorksheet(wb, "GES Vigentes (filtrados)")
-               openxlsx::addWorksheet(wb, "GES Retrasadas (filtrados)")
-               openxlsx::addWorksheet(wb, "GES Exceptuadas (filtrados)")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días (filtrados)")
+               openxlsx::addWorksheet(wb, "GES Vigentes")
+               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
+               openxlsx::addWorksheet(wb, "GES Retrasadas")
+               openxlsx::addWorksheet(wb, "GES Exceptuadas")
                
-               openxlsx::writeData(wb, "GES Vigentes (filtrados)", vigentes_export)
-               openxlsx::writeData(wb, "GES Retrasadas (filtrados)", retrasadas_export)
-               openxlsx::writeData(wb, "GES Exceptuadas (filtrados)", exceptuadas_export)
-               
+               openxlsx::writeData(wb, "GES Vigentes", vigentes_export)
                if(!is.null(tbl_avanzadas_filt) && nrow(tbl_avanzadas_filt) > 0) {
-                    openxlsx::writeData(wb, "GES Avanzadas por Días (filtrados)", tbl_avanzadas_filt)
+                    openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas_filt)
                } else {
-                    openxlsx::writeData(wb, "GES Avanzadas por Días (filtrados)", data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados"))
+                    openxlsx::writeData(wb, "GES Avanzadas por Días", data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados"))
                }
+               openxlsx::writeData(wb, "GES Retrasadas", retrasadas_export)
+               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas_export)
                
-               openxlsx::setColWidths(wb, "GES Vigentes (filtrados)", cols = 1:ncol(vigentes_export), widths = "auto")
-               openxlsx::setColWidths(wb, "GES Retrasadas (filtrados)", cols = 1:ncol(retrasadas_export), widths = "auto")
-               openxlsx::setColWidths(wb, "GES Exceptuadas (filtrados)", cols = 1:ncol(exceptuadas_export), widths = "auto")
-               
+               # Ajustar anchos
+               openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes_export), widths = "auto")
                if(!is.null(tbl_avanzadas_filt) && nrow(tbl_avanzadas_filt) > 0) {
-                    openxlsx::setColWidths(wb, "GES Avanzadas por Días (filtrados)", cols = 1:ncol(tbl_avanzadas_filt), widths = "auto")
+                    openxlsx::setColWidths(wb, "GES Avanzadas por Días", cols = 1:ncol(tbl_avanzadas_filt), widths = "auto")
                }
+               openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas_export), widths = "auto")
+               openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas_export), widths = "auto")
                
                openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
           }
