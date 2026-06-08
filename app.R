@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES - Richard Quintanilla Campos
+# app.R - Vigilancia GES (VERSIÓN FINAL CON COLUMNAS FIJAS Y DESCARGA COMPLETA)
 
 library(shiny)
 library(shinydashboard)
