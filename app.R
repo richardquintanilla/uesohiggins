@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES - Richard Quintanilla
+# app.R - Vigilancia GES - Richard Quintanilla Campos
 
 library(shiny)
 library(shinydashboard)
@@ -385,7 +385,7 @@ ui <- dashboardPage(
                                 plotlyOutput("grafico_evolucion_vigentes", height = "500px"))
                        ),
                        fluidRow(
-                            box(title = "Detalle de GES Avanzadas por Días al vencimiento", 
+                            box(title = "Detalle GES Avanzadas: Días que faltan para el vencimiento", 
                                 status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_dias_avanzadas"))
                        )
@@ -665,11 +665,11 @@ server <- function(input, output, session) {
           names(tbl_vigentes)[names(tbl_vigentes) == "responsable_de_garantia"] <- "Responsable de Garantía"
           names(tbl_vigentes)[names(tbl_vigentes) == "problema_clasificado"] <- "Problema de Salud"
           names(tbl_vigentes)[names(tbl_vigentes) == "nombre_garantia"] <- "Nombre Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Días Totales Plazo"
+          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Plazo Total en días"
           names(tbl_vigentes)[names(tbl_vigentes) == "total"] <- "Total Casos"
           
           # Reordenar columnas: fijas primero
-          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Días Totales Plazo", "Total Casos")
+          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Plazo Total en días", "Total Casos")
           columnas_dias <- names(tbl_vigentes)[grepl("^Día ", names(tbl_vigentes))]
           otras_columnas <- names(tbl_vigentes)[!names(tbl_vigentes) %in% c(columnas_fijas, columnas_dias)]
           tbl_vigentes <- tbl_vigentes[, c(columnas_fijas, columnas_dias, otras_columnas)]
@@ -1254,7 +1254,7 @@ server <- function(input, output, session) {
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                          
                          tbl_avanzadas <- as.data.frame(tbl_avanzadas)
@@ -1332,7 +1332,7 @@ server <- function(input, output, session) {
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                     
                     tbl_avanzadas <- as.data.frame(tbl_avanzadas)
