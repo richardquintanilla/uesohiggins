@@ -385,7 +385,7 @@ ui <- dashboardPage(
                                 plotlyOutput("grafico_evolucion_vigentes", height = "500px"))
                        ),
                        fluidRow(
-                            box(title = "Detalle GES Avanzadas: Días que faltan para el vencimiento", 
+                            box(title = "GES Avanzadas: días que faltan para el vencimiento", 
                                 status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_dias_avanzadas"))
                        )
@@ -442,12 +442,12 @@ ui <- dashboardPage(
                                 div(style = "text-align: center;",
                                     icon("database", class = "fa-4x", style = "color: #191970;"),
                                     br(),
-                                    p("Los filtros seleccionados se aplicarán a la descarga de datos filtrados."),
+                                    p("Los filtros seleccionados se aplicarán a ambas descargas."),
                                     br(),
-                                    downloadButton("download_all", "Datos Completos", 
+                                    downloadButton("download_all", "Datos Históricos", 
                                                    class = "btn-primary", 
                                                    style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white; margin-right: 10px;"),
-                                    downloadButton("download_filtered", "Datos Filtrados", 
+                                    downloadButton("download_filtered", "Datos Último corte", 
                                                    class = "btn-success", 
                                                    style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white;")
                                 )
@@ -665,11 +665,11 @@ server <- function(input, output, session) {
           names(tbl_vigentes)[names(tbl_vigentes) == "responsable_de_garantia"] <- "Responsable de Garantía"
           names(tbl_vigentes)[names(tbl_vigentes) == "problema_clasificado"] <- "Problema de Salud"
           names(tbl_vigentes)[names(tbl_vigentes) == "nombre_garantia"] <- "Nombre Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Plazo Total en días"
+          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Días Totales Plazo"
           names(tbl_vigentes)[names(tbl_vigentes) == "total"] <- "Total Casos"
           
           # Reordenar columnas: fijas primero
-          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Plazo Total en días", "Total Casos")
+          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Días Totales Plazo", "Total Casos")
           columnas_dias <- names(tbl_vigentes)[grepl("^Día ", names(tbl_vigentes))]
           otras_columnas <- names(tbl_vigentes)[!names(tbl_vigentes) %in% c(columnas_fijas, columnas_dias)]
           tbl_vigentes <- tbl_vigentes[, c(columnas_fijas, columnas_dias, otras_columnas)]
@@ -1211,20 +1211,20 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 9. DOWNLOAD - DATOS COMPLETOS (usa objetos ya cargados y simplificado)
+     # 9. DOWNLOAD - DATOS HISTÓRICOS (aplica filtros)
      output$download_all <- downloadHandler(
           filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx") 
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_historicos.xlsx") 
           },
           content = function(file) {
-               # Usar dataframes históricos ya cargados
-               vigentes <- datos_historicos_vigentes
-               retrasadas <- datos_historicos_retrasadas
-               exceptuadas <- datos_historicos_exceptuadas
+               # Datos históricos filtrados
+               vigentes <- datos_historicos_filt_vig()
+               retrasadas <- datos_historicos_filt_ret()
+               exceptuadas <- datos_historicos_filt_exc()
                
-               # Construir tabla avanzada por días (sin filtros)
-               if (exists("datos_recientes_vigentes") && nrow(datos_recientes_vigentes) > 0) {
-                    datos_avanzadas <- datos_recientes_vigentes %>%
+               # Tabla de avanzadas por días con datos recientes filtrados
+               if (exists("datos_recientes_filt_vig") && nrow(datos_recientes_filt_vig()) > 0) {
+                    datos_avanzadas <- datos_recientes_filt_vig() %>%
                          filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
                     
                     if (nrow(datos_avanzadas) > 0) {
@@ -1245,7 +1245,6 @@ server <- function(input, output, session) {
                               mutate(total = total - dias_totales_plazo) %>%
                               relocate(total, .after = dias_totales_plazo)
                          
-                         # Renombrar columnas
                          for (dia in names(tbl_avanzadas)) {
                               if (suppressWarnings(!is.na(as.numeric(dia)))) {
                                    names(tbl_avanzadas)[names(tbl_avanzadas) == dia] <- paste0("Día ", dia)
@@ -1254,12 +1253,12 @@ server <- function(input, output, session) {
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
+                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                          
                          tbl_avanzadas <- as.data.frame(tbl_avanzadas)
                     } else {
-                         tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas")
+                         tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
                     }
                } else {
                     tbl_avanzadas <- data.frame(Mensaje = "No se pudieron generar los datos de Avanzadas")
@@ -1270,7 +1269,7 @@ server <- function(input, output, session) {
                names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
                names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
                
-               # Crear Excel en el orden solicitado
+               # Crear Excel
                wb <- openxlsx::createWorkbook()
                openxlsx::addWorksheet(wb, "GES Vigentes")
                openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
@@ -1282,7 +1281,6 @@ server <- function(input, output, session) {
                openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
                openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
                
-               # Ajustar anchos (simple)
                for (sheet in names(wb)) {
                     openxlsx::setColWidths(wb, sheet, cols = 1, widths = "auto")
                }
@@ -1291,13 +1289,13 @@ server <- function(input, output, session) {
           }
      )
      
-     # 10. DOWNLOAD - DATOS FILTRADOS (simplificado y robusto)
+     # 10. DOWNLOAD - DATOS ÚLTIMO CORTE (aplica filtros)
      output$download_filtered <- downloadHandler(
           filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_filtrado.xlsx") 
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_ultimo_corte.xlsx") 
           },
           content = function(file) {
-               # Datos filtrados actuales
+               # Datos recientes filtrados
                vigentes_filt <- datos_recientes_filt_vig()
                retrasadas_filt <- datos_recientes_filt_ret()
                exceptuadas_filt <- datos_recientes_filt_exc()
@@ -1332,7 +1330,7 @@ server <- function(input, output, session) {
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
+                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                     
                     tbl_avanzadas <- as.data.frame(tbl_avanzadas)
@@ -1356,7 +1354,6 @@ server <- function(input, output, session) {
                            periodo_excepcion, causal_excepcion, es_oncologico) %>%
                     as.data.frame()
                
-               # Renombrar
                names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
                names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
                names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
