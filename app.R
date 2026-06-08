@@ -630,7 +630,7 @@ server <- function(input, output, session) {
           )
      })
      
-     # TABLA DE DISTRIBUCIÓN POR DÍAS - SOLO PARA CASOS AVANZADAS
+     # TABLA DE DISTRIBUCIÓN POR DÍAS - SOLO PARA CASOS AVANZADAS (CON CEROS REEMPLAZADOS POR "-")
      output$tabla_dias_avanzadas <- renderReactable({
           datos_avanzadas <- datos_recientes_filt_vig() %>%
                filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
@@ -656,13 +656,16 @@ server <- function(input, output, session) {
                dplyr::arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
                janitor::adorn_totals(where = "col", name = "total") %>% 
                dplyr::mutate(total = total - dias_totales_plazo) %>% 
-               dplyr::relocate(total, .after = dias_totales_plazo)
+               dplyr::relocate(total, .after = dias_totales_plazo) %>%
+               # 👇 CONVERTIR CEROS A "-" EN TODAS LAS COLUMNAS NUMÉRICAS (EXCEPTO LAS FIJAS Y EL TOTAL)
+               dplyr::mutate(dplyr::across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, total),
+                                           ~ ifelse(. == 0, "-", as.character(.))))
           
           if(nrow(tbl_vigentes) == 0) {
                return(reactable(data.frame(Mensaje = "No se pudo generar la tabla")))
           }
           
-          # Renombrar columnas
+          # Renombrar columnas de días (las que originalmente eran números)
           for(dia in names(tbl_vigentes)) {
                if(suppressWarnings(!is.na(as.numeric(dia)))) {
                     names(tbl_vigentes)[names(tbl_vigentes) == dia] <- paste0("Día ", dia)
@@ -672,11 +675,11 @@ server <- function(input, output, session) {
           names(tbl_vigentes)[names(tbl_vigentes) == "responsable_de_garantia"] <- "Responsable de Garantía"
           names(tbl_vigentes)[names(tbl_vigentes) == "problema_clasificado"] <- "Problema de Salud"
           names(tbl_vigentes)[names(tbl_vigentes) == "nombre_garantia"] <- "Nombre Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Días Totales Plazo"
+          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Plazo Total en días"
           names(tbl_vigentes)[names(tbl_vigentes) == "total"] <- "Total Casos"
           
           # Reordenar columnas: fijas primero
-          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Días Totales Plazo", "Total Casos")
+          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Plazo Total en días", "Total Casos")
           columnas_dias <- names(tbl_vigentes)[grepl("^Día ", names(tbl_vigentes))]
           otras_columnas <- names(tbl_vigentes)[!names(tbl_vigentes) %in% c(columnas_fijas, columnas_dias)]
           tbl_vigentes <- tbl_vigentes[, c(columnas_fijas, columnas_dias, otras_columnas)]
@@ -1250,7 +1253,10 @@ server <- function(input, output, session) {
                               arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
                               janitor::adorn_totals(where = "col", name = "total") %>%
                               mutate(total = total - dias_totales_plazo) %>%
-                              relocate(total, .after = dias_totales_plazo)
+                              relocate(total, .after = dias_totales_plazo) %>%
+                              # Reemplazar ceros por "-" en todas las columnas numéricas excepto dias_totales_plazo
+                              mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
+                                            ~ ifelse(. == 0, "-", as.character(.))))
                          
                          for (dia in names(tbl_avanzadas)) {
                               if (suppressWarnings(!is.na(as.numeric(dia)))) {
@@ -1260,7 +1266,7 @@ server <- function(input, output, session) {
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
                          names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                          
                          tbl_avanzadas <- as.data.frame(tbl_avanzadas)
@@ -1327,7 +1333,9 @@ server <- function(input, output, session) {
                          arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
                          janitor::adorn_totals(where = "col", name = "total") %>%
                          mutate(total = total - dias_totales_plazo) %>%
-                         relocate(total, .after = dias_totales_plazo)
+                         relocate(total, .after = dias_totales_plazo) %>%
+                         mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
+                                       ~ ifelse(. == 0, "-", as.character(.))))
                     
                     for (dia in names(tbl_avanzadas)) {
                          if (suppressWarnings(!is.na(as.numeric(dia)))) {
@@ -1337,7 +1345,7 @@ server <- function(input, output, session) {
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Días Totales Plazo"
+                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
                     names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
                     
                     tbl_avanzadas <- as.data.frame(tbl_avanzadas)
