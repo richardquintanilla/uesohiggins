@@ -385,7 +385,7 @@ ui <- dashboardPage(
                                 plotlyOutput("grafico_evolucion_vigentes", height = "500px"))
                        ),
                        fluidRow(
-                            box(title = "GES Avanzadas: días que faltan para el vencimiento", 
+                            box(title = "GES Avanzadas: Días que faltan para el Vencimiento", 
                                 status = "primary", solidHeader = TRUE, width = 12,
                                 reactableOutput("tabla_dias_avanzadas"))
                        )
@@ -442,7 +442,14 @@ ui <- dashboardPage(
                                 div(style = "text-align: center;",
                                     icon("database", class = "fa-4x", style = "color: #191970;"),
                                     br(),
-                                    p("Los filtros seleccionados se aplicarán a ambas descargas."),
+                                    p("Este apartado permite descargar un archivo Excel con 4 pestañas:"),
+                                    p(strong("• GES Vigentes"), br(),
+                                      strong("• GES Avanzadas por Días"), br(),
+                                      strong("• GES Retrasadas"), br(),
+                                      strong("• GES Exceptuadas")),
+                                    br(),
+                                    p("Los filtros seleccionados (responsable, problema de salud y oncológicos) se aplican a las descargas, por lo que se deben limpiar los filtros antes de descargar si así lo que requiere."),
+                                    p(strong("Nota:"), " La pestaña 'GES Avanzadas por Días' corresponde siempre a los datos del último corte disponible."),
                                     br(),
                                     downloadButton("download_all", "Datos Históricos", 
                                                    class = "btn-primary", 
