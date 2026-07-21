@@ -1003,78 +1003,67 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 9. DOWNLOAD - DATOS COMPLETOS (CON RUTAS FLEXIBLES) ----
-     
-     output$download_all <- downloadHandler(
-          filename = function() {
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx")
-          },
-          content = function(file) {
-               # Definir rutas posibles para cada archivo (igual que en la carga inicial)
-               rutas_vigentes <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", 
-                                   "data/ges_vigentes_historico_ligero.fst")
-               rutas_retrasadas <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", 
-                                     "data/ges_retrasadas_historico_ligero.fst")
-               rutas_exceptuadas <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", 
-                                      "data/ges_exceptuadas_historico_ligero.fst")
-               
-               # Encontrar las rutas usando la misma función que ya existe
-               ruta_vigentes <- encontrar_archivo(rutas_vigentes)
-               ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
-               ruta_exceptuadas <- encontrar_archivo(rutas_exceptuadas)
-               
-               # Cargar datos con respaldo en memoria si no se encuentran los archivos
-               if(!is.null(ruta_vigentes)) {
-                    vigentes <- read_fst(ruta_vigentes, as.data.table = FALSE)
-               } else {
-                    warning("No se encontró archivo histórico de vigentes, usando datos en memoria")
-                    vigentes <- datos_historicos_vigentes
-               }
-               
-               if(!is.null(ruta_retrasadas)) {
-                    retrasadas <- read_fst(ruta_retrasadas, as.data.table = FALSE)
-               } else {
-                    warning("No se encontró archivo histórico de retrasadas, usando datos en memoria")
-                    retrasadas <- datos_historicos_retrasadas
-               }
-               
-               if(!is.null(ruta_exceptuadas)) {
-                    exceptuadas <- read_fst(ruta_exceptuadas, as.data.table = FALSE)
-               } else {
-                    warning("No se encontró archivo histórico de exceptuadas, usando datos en memoria")
-                    exceptuadas <- datos_historicos_exceptuadas
-               }
-               
-               # Renombrar columnas para mejor legibilidad
-               names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               
-               # Crear Excel
-               wb <- openxlsx::createWorkbook()
-               openxlsx::addWorksheet(wb, "GES Vigentes")
-               openxlsx::addWorksheet(wb, "GES Retrasadas")
-               openxlsx::addWorksheet(wb, "GES Exceptuadas")
-               
-               openxlsx::writeData(wb, "GES Vigentes", vigentes)
-               openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
-               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
-               
-               # Ajustar anchos de columna automáticamente
-               for(sheet in c("GES Vigentes", "GES Retrasadas", "GES Exceptuadas")) {
-                    datos_hoja <- tryCatch({
-                         openxlsx::read.xlsx(wb, sheet = sheet, check.names = FALSE)
-                    }, error = function(e) {
-                         data.frame()
-                    })
-                    if(ncol(datos_hoja) > 0) {
-                         openxlsx::setColWidths(wb, sheet, cols = 1:ncol(datos_hoja), widths = "auto")
-                    }
-               }
-               
-               openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
-          }
-     )
+     # 9. DOWNLOAD - DATOS COMPLETOS (SIN DATOS SENSIBLES) ----
+
+output$download_all <- downloadHandler(
+  filename = function() {
+    paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx")
+  },
+  content = function(file) {
+    # Definir rutas posibles para cada archivo (igual que en la carga inicial)
+    rutas_vigentes <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", 
+                        "data/ges_vigentes_historico_ligero.fst")
+    rutas_retrasadas <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", 
+                          "data/ges_retrasadas_historico_ligero.fst")
+    rutas_exceptuadas <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", 
+                           "data/ges_exceptuadas_historico_ligero.fst")
+    
+    # Encontrar las rutas usando la misma función que ya existe
+    ruta_vigentes <- encontrar_archivo(rutas_vigentes)
+    ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
+    ruta_exceptuadas <- encontrar_archivo(rutas_exceptuadas)
+    
+    # Cargar datos con respaldo en memoria si no se encuentran los archivos
+    if(!is.null(ruta_vigentes)) {
+      vigentes <- read_fst(ruta_vigentes, as.data.table = FALSE)
+    } else {
+      vigentes <- datos_historicos_vigentes
+    }
+    
+    if(!is.null(ruta_retrasadas)) {
+      retrasadas <- read_fst(ruta_retrasadas, as.data.table = FALSE)
+    } else {
+      retrasadas <- datos_historicos_retrasadas
+    }
+    
+    if(!is.null(ruta_exceptuadas)) {
+      exceptuadas <- read_fst(ruta_exceptuadas, as.data.table = FALSE)
+    } else {
+      exceptuadas <- datos_historicos_exceptuadas
+    }
+    
+    # Renombrar columnas (exactamente como estaba antes)
+    names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    
+    # Crear Excel
+    wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(wb, "GES Vigentes")
+    openxlsx::addWorksheet(wb, "GES Retrasadas")
+    openxlsx::addWorksheet(wb, "GES Exceptuadas")
+    
+    openxlsx::writeData(wb, "GES Vigentes", vigentes)
+    openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
+    openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
+    
+    openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes), widths = "auto")
+    openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
+    openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
+    
+    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+  }
+)
      
      # 10. DOWNLOAD - DATOS FILTRADOS (SEGÚN FILTROS ACTUALES) ----
      
