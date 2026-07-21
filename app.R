@@ -1003,123 +1003,38 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 9. DOWNLOAD - DATOS COMPLETOS (CON DIAGNÓSTICO) ----
+     # 9. DOWNLOAD - DATOS COMPLETOS (USANDO DATOS EN MEMORIA) ----
 
 output$download_all <- downloadHandler(
   filename = function() {
     paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx")
   },
   content = function(file) {
-    tryCatch({
-      # DIAGNÓSTICO: Ver qué archivos existen
-      cat("=== DIAGNÓSTICO DESCARGA ===\n")
-      
-      # Definir rutas posibles
-      rutas_vigentes <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", 
-                          "data/ges_vigentes_historico_ligero.fst")
-      rutas_retrasadas <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", 
-                            "data/ges_retrasadas_historico_ligero.fst")
-      rutas_exceptuadas <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", 
-                             "data/ges_exceptuadas_historico_ligero.fst")
-      
-      # Verificar existencia de archivos
-      for(r in rutas_vigentes) {
-        cat("Buscando:", r, "-", ifelse(file.exists(r), "✅ EXISTE", "❌ NO EXISTE"), "\n")
-      }
-      
-      # Encontrar las rutas
-      ruta_vigentes <- encontrar_archivo(rutas_vigentes)
-      ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
-      ruta_exceptuadas <- encontrar_archivo(rutas_exceptuadas)
-      
-      cat("Ruta encontrada vigentes:", ifelse(is.null(ruta_vigentes), "NULL", ruta_vigentes), "\n")
-      cat("Ruta encontrada retrasadas:", ifelse(is.null(ruta_retrasadas), "NULL", ruta_retrasadas), "\n")
-      cat("Ruta encontrada exceptuadas:", ifelse(is.null(ruta_exceptuadas), "NULL", ruta_exceptuadas), "\n")
-      
-      # Cargar datos
-      if(!is.null(ruta_vigentes)) {
-        vigentes <- read_fst(ruta_vigentes, as.data.table = FALSE)
-        cat("Vigentes cargados:", nrow(vigentes), "filas,", ncol(vigentes), "columnas\n")
-        cat("Columnas:", paste(names(vigentes), collapse=", "), "\n")
-      } else {
-        vigentes <- datos_historicos_vigentes
-        cat("Usando datos_historicos_vigentes en memoria:", nrow(vigentes), "filas\n")
-      }
-      
-      if(!is.null(ruta_retrasadas)) {
-        retrasadas <- read_fst(ruta_retrasadas, as.data.table = FALSE)
-        cat("Retrasadas cargadas:", nrow(retrasadas), "filas,", ncol(retrasadas), "columnas\n")
-      } else {
-        retrasadas <- datos_historicos_retrasadas
-        cat("Usando datos_historicos_retrasadas en memoria:", nrow(retrasadas), "filas\n")
-      }
-      
-      if(!is.null(ruta_exceptuadas)) {
-        exceptuadas <- read_fst(ruta_exceptuadas, as.data.table = FALSE)
-        cat("Exceptuadas cargadas:", nrow(exceptuadas), "filas,", ncol(exceptuadas), "columnas\n")
-      } else {
-        exceptuadas <- datos_historicos_exceptuadas
-        cat("Usando datos_historicos_exceptuadas en memoria:", nrow(exceptuadas), "filas\n")
-      }
-      
-      # Verificar que los datos existen
-      if(nrow(vigentes) == 0) {
-        vigentes <- data.frame(Mensaje = "No hay datos de vigentes disponibles")
-      }
-      if(nrow(retrasadas) == 0) {
-        retrasadas <- data.frame(Mensaje = "No hay datos de retrasadas disponibles")
-      }
-      if(nrow(exceptuadas) == 0) {
-        exceptuadas <- data.frame(Mensaje = "No hay datos de exceptuadas disponibles")
-      }
-      
-      # Renombrar columnas solo si tienen las columnas esperadas
-      if(ncol(vigentes) == 5 && !("Mensaje" %in% names(vigentes))) {
-        names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
-      }
-      if(ncol(retrasadas) == 5 && !("Mensaje" %in% names(retrasadas))) {
-        names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
-      }
-      if(ncol(exceptuadas) == 5 && !("Mensaje" %in% names(exceptuadas))) {
-        names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
-      }
-      
-      # Crear Excel
-      wb <- openxlsx::createWorkbook()
-      openxlsx::addWorksheet(wb, "GES Vigentes")
-      openxlsx::addWorksheet(wb, "GES Retrasadas")
-      openxlsx::addWorksheet(wb, "GES Exceptuadas")
-      
-      openxlsx::writeData(wb, "GES Vigentes", vigentes)
-      openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
-      openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
-      
-      openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes), widths = "auto")
-      openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
-      openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
-      
-      openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
-      
-      cat("✅ Excel creado exitosamente en:", file, "\n")
-      
-    }, error = function(e) {
-      # Si hay error, guardarlo en un archivo de texto para diagnóstico
-      cat("❌ ERROR en download_all:", e$message, "\n")
-      cat("Traceback:\n")
-      print(e)
-      
-      # Crear un archivo de texto con el error
-      writeLines(
-        paste(
-          "ERROR EN DESCARGA",
-          paste(rep("=", 50), collapse=""),
-          paste("Mensaje:", e$message),
-          paste("Fecha:", Sys.time()),
-          sep="\n"
-        ),
-        file
-      )
-    })
+    # Usar los datos que YA ESTÁN CARGADOS (los mismos del dashboard)
+    vigentes <- datos_historicos_vigentes
+    retrasadas <- datos_historicos_retrasadas
+    exceptuadas <- datos_historicos_exceptuadas
+    
+    # Renombrar columnas
+    names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
+    
+    # Crear Excel
+    wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(wb, "GES Vigentes")
+    openxlsx::addWorksheet(wb, "GES Retrasadas")
+    openxlsx::addWorksheet(wb, "GES Exceptuadas")
+    
+    openxlsx::writeData(wb, "GES Vigentes", vigentes)
+    openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
+    openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
+    
+    openxlsx::setColWidths(wb, "GES Vigentes", cols = 1:ncol(vigentes), widths = "auto")
+    openxlsx::setColWidths(wb, "GES Retrasadas", cols = 1:ncol(retrasadas), widths = "auto")
+    openxlsx::setColWidths(wb, "GES Exceptuadas", cols = 1:ncol(exceptuadas), widths = "auto")
+    
+    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
   }
 )
      
