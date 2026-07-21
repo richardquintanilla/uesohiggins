@@ -1,4 +1,4 @@
-# app.R - Vigilancia GES - Richard Quintanilla Campos
+# app.R - Vigilancia GES - Richard Quintanilla
 
 library(shiny)
 library(shinydashboard)
@@ -9,243 +9,6 @@ library(reactable)
 library(htmltools)
 library(fst)
 library(openxlsx)
-library(janitor)
-
-# =====================================================
-# FUNCIÓN rt_tabla MODIFICADA PARA SHINY
-# =====================================================
-rt_tabla <- function(df, fijas = NULL, grupos = NULL, titulos = NULL, filtrar = TRUE, 
-                     barras = NULL, color_barra = c("#cd0000", "#ffa500", "#00cd00", 
-                                                    "#0000ee", "#551a8b"), destacar_col = NULL, color_destacar = "#e3e3e3", 
-                     cols_porcentaje = NULL, destacar_row = NULL, highlight_color = "#f0e68c", 
-                     decimales = 0, decimales_col = NULL) 
-{
-     `%||%` <- function(a, b) if (!is.null(a)) a else b
-     
-     if (inherits(df, "SharedData")) {
-          df_data <- df$data()
-     } else {
-          df_data <- df
-     }
-     
-     titulos <- titulos %||% list()
-     decimales_col <- decimales_col %||% list()
-     
-     get_decimales <- function(col) {
-          if (!is.null(decimales_col[[col]])) decimales_col[[col]] else decimales
-     }
-     
-     destacar_col <- intersect(destacar_col %||% character(0), names(df_data))
-     cols_porcentaje <- intersect(cols_porcentaje %||% character(0), names(df_data))
-     barras <- intersect(barras %||% character(0), names(df_data))
-     fijas <- intersect(fijas %||% character(0), names(df_data))
-     
-     # CSS para columnas fijas
-     css_js <- htmltools::tags$style(htmltools::HTML("
-        .reactable {
-          font-family: sans-serif !important;
-          font-size: 13px !important;
-        }
-        
-        .reactable .rt-th,
-        .reactable .rt-th-group {
-          display: flex !important;
-          align-items: center !important;
-          justify-content: center !important;
-          text-align: center !important;
-        }
-        
-        .reactable .rt-th.col-fija {
-          justify-content: flex-start !important;
-          text-align: left !important;
-          padding-left: 8px;
-        }
-        
-        .rt-td.col-fija {
-          background-color: #191970 !important;
-          color: white !important;
-        }
-        
-        .rt-tr:hover .rt-td.col-fija {
-          background-color: #191970 !important;
-        }
-        
-        .reactable .rt-thead-group,
-        .reactable .rt-th-group {
-          background-color: #191970 !important;
-          color: white !important;
-          font-weight: bold !important;
-          text-align: center !important;
-          font-family: inherit !important;
-        }
-     "))
-     
-     font_family_base <- "sans-serif"
-     font_size_base <- "13px"
-     
-     clean_numeric <- function(x) {
-          if (is.numeric(x)) return(as.numeric(x))
-          xch <- gsub("(?<=\\d)\\.(?=\\d{3}(?:\\D|$))", "", trimws(as.character(x)), perl = TRUE)
-          xch <- gsub(",", ".", xch, fixed = TRUE)
-          suppressWarnings(as.numeric(xch))
-     }
-     
-     columnas <- lapply(names(df_data), function(colname) {
-          col <- colname
-          class_col <- paste0("col-", gsub("\\s+", "_", col))
-          estilo_base <- list(fontFamily = font_family_base, fontSize = font_size_base, 
-                              fontWeight = "normal", textAlign = "center")
-          
-          # Columnas fijas - USANDO sticky = "left"
-          if (col %in% fijas) {
-               return(reactable::colDef(
-                    name = titulos[[col]] %||% col, 
-                    sticky = "left",
-                    align = "left", 
-                    class = paste(class_col, "col-fija"), 
-                    headerStyle = list(
-                         background = "#191970", 
-                         color = "white", 
-                         fontWeight = "bold", 
-                         fontFamily = font_family_base, 
-                         textAlign = "center"
-                    ), 
-                    style = list(
-                         background = "#191970", 
-                         color = "white", 
-                         fontFamily = font_family_base, 
-                         fontSize = font_size_base, 
-                         fontWeight = "bold", 
-                         borderRight = "2px solid white"
-                    )
-               ))
-          }
-          
-          # Columnas con barras
-          if (col %in% barras) {
-               valores_limpios <- clean_numeric(df_data[[col]])
-               pal <- if (length(color_barra) == 5) color_barra else rep("#ccc", 5)
-               es_pct <- col %in% cols_porcentaje
-               digs <- get_decimales(col)
-               is_dest_col <- col %in% destacar_col
-               
-               return(reactable::colDef(
-                    name = titulos[[col]] %||% col, 
-                    class = class_col, 
-                    align = "center", 
-                    html = TRUE, 
-                    sortable = TRUE, 
-                    style = if (is_dest_col) list(background = color_destacar, fontWeight = "normal", 
-                                                  fontFamily = font_family_base, fontSize = font_size_base) else estilo_base, 
-                    cell = function(value, index) {
-                         val_num <- clean_numeric(df_data[[col]][index])
-                         if (!is.finite(val_num)) {
-                              displayed <- ""
-                              prop <- 0
-                              color_fill <- pal[1]
-                         } else {
-                              displayed <- if (es_pct) {
-                                   paste0(formatC(val_num * 100, format = "f", digits = digs, decimal.mark = ","), "%")
-                              } else {
-                                   formatC(val_num, format = "f", digits = digs, big.mark = ".", decimal.mark = ",")
-                              }
-                              min_col <- min(valores_limpios, na.rm = TRUE)
-                              max_col <- max(valores_limpios, na.rm = TRUE)
-                              if (es_pct) {
-                                   prop <- min(val_num, 1)
-                                   qs <- seq(0, 1, length.out = 6)
-                              } else if (max_col - min_col == 0) {
-                                   prop <- 1
-                                   qs <- seq(0, 1, length.out = 6)
-                              } else {
-                                   prop <- (val_num - min_col)/(max_col - min_col)
-                                   qs <- quantile(valores_limpios, probs = seq(0, 1, length.out = 6), na.rm = TRUE)
-                              }
-                              grp <- findInterval(val_num, qs, all.inside = TRUE)
-                              color_fill <- pal[grp]
-                         }
-                         htmltools::HTML(sprintf("
-                           <div style='display:flex;align-items:center;gap:6px;'>
-                             <div class='barra-label' style='min-width:45px;text-align:right;font-family:sans-serif;font-size:13px;'>%s</div>
-                             <div class='barra-outer' style='flex-grow:1;height:14px;background:#f0f0f0;overflow:hidden;'>
-                               <div style='height:100%%;width:%s%%;background:%s;'></div>
-                             </div>
-                           </div>", displayed, prop * 100, color_fill))
-                    }
-               ))
-          }
-          
-          # Columnas a destacar
-          if (col %in% destacar_col) {
-               return(reactable::colDef(
-                    name = titulos[[col]] %||% col, 
-                    class = class_col, 
-                    align = "center", 
-                    style = list(background = color_destacar, fontWeight = "normal", 
-                                 fontFamily = font_family_base, fontSize = font_size_base), 
-                    format = if (col %in% cols_porcentaje) reactable::colFormat(percent = TRUE, digits = get_decimales(col), locale = "es") 
-                    else reactable::colFormat(separators = TRUE, digits = get_decimales(col), locale = "es")
-               ))
-          }
-          
-          # Columnas numéricas normales
-          if (is.numeric(df_data[[col]])) {
-               es_pct <- col %in% cols_porcentaje
-               digs <- get_decimales(col)
-               return(reactable::colDef(
-                    name = titulos[[col]] %||% col, 
-                    class = class_col, 
-                    align = "center", 
-                    style = estilo_base, 
-                    format = if (es_pct) reactable::colFormat(percent = TRUE, digits = digs, locale = "es") 
-                    else reactable::colFormat(separators = TRUE, digits = digs, locale = "es")
-               ))
-          }
-          
-          # Columnas de texto
-          reactable::colDef(name = titulos[[col]] %||% col, class = class_col, align = "center", style = estilo_base)
-     })
-     
-     names(columnas) <- names(df_data)
-     
-     fila_style_fun <- function(i) {
-          if (!is.null(destacar_row) && df_data[[1]][i] %in% destacar_row) {
-               return(list(background = color_destacar, fontWeight = "bold"))
-          }
-          list()
-     }
-     
-     columnGroups <- NULL
-     if (!is.null(grupos)) {
-          columnGroups <- lapply(names(grupos), function(g) {
-               reactable::colGroup(name = g, columns = grupos[[g]])
-          })
-     }
-     
-     # Crear la tabla
-     reactable::reactable(
-          df, 
-          columns = columnas, 
-          columnGroups = columnGroups, 
-          rowStyle = fila_style_fun, 
-          highlight = TRUE, 
-          striped = TRUE, 
-          bordered = TRUE, 
-          pagination = FALSE, 
-          defaultColDef = reactable::colDef(
-               align = "center", 
-               html = TRUE, 
-               headerStyle = list(
-                    background = "#191970", 
-                    color = "white", 
-                    fontWeight = "bold", 
-                    fontFamily = font_family_base, 
-                    textAlign = "center"
-               ), 
-               style = list(fontFamily = font_family_base, fontSize = font_size_base)
-          )
-     )
-}
 
 # FUNCIONES COMUNES ----
 encontrar_archivo <- function(nombres_posibles) {
@@ -260,6 +23,92 @@ encontrar_archivo <- function(nombres_posibles) {
 formatear_numero <- function(x) {
      if(is.na(x)) return("")
      format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE)
+}
+
+crear_tabla_detalle <- function(df, col_fijas = NULL, col_destacar = NULL) {
+     
+     if(is.null(df) || nrow(df) == 0) {
+          df_mensaje <- data.frame(Mensaje = "No hay datos con los filtros seleccionados")
+          return(reactable(
+               df_mensaje,
+               columns = list(Mensaje = reactable::colDef(name = "Mensaje", align = "center")),
+               searchable = FALSE,
+               striped = FALSE,
+               bordered = TRUE,
+               pagination = FALSE
+          ))
+     }
+     
+     df <- df %>%
+          mutate(across(where(is.numeric), ~ as.numeric(.)))
+     
+     columnas <- lapply(names(df), function(col) {
+          class_col <- paste0("col-", gsub("\\s+", "_", gsub("[^a-zA-Z0-9]", "_", col)))
+          
+          if(col %in% col_fijas) {
+               return(reactable::colDef(
+                    name = col,
+                    align = "left",
+                    class = paste(class_col, "col-fija"),
+                    style = list(background = "#191970", color = "white", fontWeight = "bold"),
+                    headerStyle = list(background = "#191970", color = "white", fontWeight = "bold", position = "sticky", top = 0, zIndex = 1)
+               ))
+          }
+          
+          if(col %in% col_destacar) {
+               return(reactable::colDef(
+                    name = col,
+                    align = "center",
+                    class = class_col,
+                    style = list(background = "#e3e3e3", fontWeight = "bold"),
+                    cell = function(value) {
+                         if(is.numeric(value)) return(formatear_numero(value))
+                         return(as.character(value))
+                    },
+                    headerStyle = list(background = "#191970", color = "white", fontWeight = "bold", position = "sticky", top = 0, zIndex = 1)
+               ))
+          }
+          
+          if(is.numeric(df[[col]])) {
+               return(reactable::colDef(
+                    name = col,
+                    align = "center",
+                    class = class_col,
+                    cell = function(value) formatear_numero(value),
+                    headerStyle = list(background = "#191970", color = "white", fontWeight = "bold", position = "sticky", top = 0, zIndex = 1)
+               ))
+          }
+          
+          reactable::colDef(
+               name = col,
+               align = "center",
+               class = class_col,
+               headerStyle = list(background = "#191970", color = "white", fontWeight = "bold", position = "sticky", top = 0, zIndex = 1)
+          )
+     })
+     
+     names(columnas) <- names(df)
+     
+     reactable::reactable(
+          df,
+          columns = columnas,
+          searchable = FALSE,
+          striped = TRUE,
+          bordered = TRUE,
+          highlight = FALSE,
+          pagination = FALSE,
+          height = 500,
+          defaultColDef = reactable::colDef(
+               headerStyle = list(
+                    background = "#191970",
+                    color = "white",
+                    fontWeight = "bold",
+                    position = "sticky",
+                    top = 0,
+                    zIndex = 1
+               )
+          )
+     )
 }
 
 # UI ----
@@ -383,11 +232,6 @@ ui <- dashboardPage(
                        fluidRow(
                             box(title = "Evolución Histórica de GES Vigentes", status = "primary", solidHeader = TRUE, width = 12,
                                 plotlyOutput("grafico_evolucion_vigentes", height = "500px"))
-                       ),
-                       fluidRow(
-                            box(title = "GES Avanzadas: Días que faltan para el Vencimiento", 
-                                status = "primary", solidHeader = TRUE, width = 12,
-                                reactableOutput("tabla_dias_avanzadas"))
                        )
                ),
                
@@ -442,19 +286,12 @@ ui <- dashboardPage(
                                 div(style = "text-align: center;",
                                     icon("database", class = "fa-4x", style = "color: #191970;"),
                                     br(),
-                                    p("Este apartado permite descargar un archivo Excel con 4 pestañas:"),
-                                    p(strong("• GES Vigentes"), br(),
-                                      strong("• GES Avanzadas por Días"), br(),
-                                      strong("• GES Retrasadas"), br(),
-                                      strong("• GES Exceptuadas")),
+                                    p("Los filtros seleccionados se aplicarán a la descarga de datos filtrados."),
                                     br(),
-                                    p("Los filtros seleccionados (responsable, problema de salud y oncológicos) se aplican a las descargas, por lo que se deben limpiar los filtros antes de descargar si así lo que requiere."),
-                                    p(strong("Nota:"), " La pestaña 'GES Avanzadas por Días' corresponde siempre a los datos del último corte disponible."),
-                                    br(),
-                                    downloadButton("download_all", "Datos Históricos", 
+                                    downloadButton("download_all", "Datos Completos", 
                                                    class = "btn-primary", 
                                                    style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white; margin-right: 10px;"),
-                                    downloadButton("download_filtered", "Datos Último corte", 
+                                    downloadButton("download_filtered", "Datos Filtrados", 
                                                    class = "btn-success", 
                                                    style = "font-size: 14px; padding: 6px 15px; background-color: #191970; border-color: #191970; color: white;")
                                 )
@@ -469,16 +306,20 @@ ui <- dashboardPage(
 
 server <- function(input, output, session) {
      
+     
      ## 1. CARGA DE DATOS  ----
      
+     # Rutas para archivos RECIENTES
      rutas_vigentes_reciente <- c("ges/listados/data/ges_vigentes_reciente.fst", "data/ges_vigentes_reciente.fst")
      rutas_retrasadas_reciente <- c("ges/listados/data/ges_retrasadas_reciente.fst", "data/ges_retrasadas_reciente.fst")
      rutas_exceptuadas_reciente <- c("ges/listados/data/ges_exceptuadas_reciente.fst", "data/ges_exceptuadas_reciente.fst")
      
+     # Rutas para archivos HISTÓRICOS LIGEROS
      rutas_vigentes_historico <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", "data/ges_vigentes_historico_ligero.fst")
      rutas_retrasadas_historico <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", "data/ges_retrasadas_historico_ligero.fst")
      rutas_exceptuadas_historico <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", "data/ges_exceptuadas_historico_ligero.fst")
      
+     # Encontrar archivos
      ruta_vigentes_reciente <- encontrar_archivo(rutas_vigentes_reciente)
      ruta_retrasadas_reciente <- encontrar_archivo(rutas_retrasadas_reciente)
      ruta_exceptuadas_reciente <- encontrar_archivo(rutas_exceptuadas_reciente)
@@ -487,14 +328,20 @@ server <- function(input, output, session) {
      ruta_retrasadas_historico <- encontrar_archivo(rutas_retrasadas_historico)
      ruta_exceptuadas_historico <- encontrar_archivo(rutas_exceptuadas_historico)
      
+     # Verificar archivos RECIENTES
      if(is.null(ruta_vigentes_reciente)) stop("No se encontró archivo RECIENTE de VIGENTES")
      if(is.null(ruta_retrasadas_reciente)) stop("No se encontró archivo RECIENTE de RETRASADAS")
      if(is.null(ruta_exceptuadas_reciente)) stop("No se encontró archivo RECIENTE de EXCEPTUADAS")
+     
+     cat("✅ Archivos RECIENTES encontrados\n")
+     
+     # 2. CARGAR DATOS RECIENTES ----
      
      datos_recientes_vigentes <- read_fst(ruta_vigentes_reciente, as.data.table = FALSE)
      datos_recientes_retrasadas <- read_fst(ruta_retrasadas_reciente, as.data.table = FALSE)
      datos_recientes_exceptuadas <- read_fst(ruta_exceptuadas_reciente, as.data.table = FALSE)
      
+     # Para RETRASADAS, agregar tipo_retraso
      if(!"tipo_retraso" %in% names(datos_recientes_retrasadas)) {
           datos_recientes_retrasadas <- datos_recientes_retrasadas %>%
                mutate(
@@ -506,25 +353,38 @@ server <- function(input, output, session) {
                )
      }
      
+     cat("📊 Datos RECIENTES cargados:\n")
+     cat("  VIGENTES:", nrow(datos_recientes_vigentes), "registros\n")
+     cat("  RETRASADAS:", nrow(datos_recientes_retrasadas), "registros\n")
+     cat("  EXCEPTUADAS:", nrow(datos_recientes_exceptuadas), "registros\n")
+     
+     # 3. CARGAR DATOS HISTÓRICOS LIGEROS ----
+     
      if(!is.null(ruta_vigentes_historico)) {
           datos_historicos_vigentes <- read_fst(ruta_vigentes_historico, as.data.table = FALSE)
+          cat("✅ Histórico VIGENTES LIGERO cargado:", nrow(datos_historicos_vigentes), "registros\n")
      } else {
           datos_historicos_vigentes <- datos_recientes_vigentes %>%
                select(fecha_corte, clasificacion_avance, problema_clasificado, responsable_de_garantia, es_oncologico)
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
      if(!is.null(ruta_retrasadas_historico)) {
           datos_historicos_retrasadas <- read_fst(ruta_retrasadas_historico, as.data.table = FALSE)
+          cat("✅ Histórico RETRASADAS LIGERO cargado:", nrow(datos_historicos_retrasadas), "registros\n")
      } else {
           datos_historicos_retrasadas <- datos_recientes_retrasadas %>%
                select(fecha_corte, tipo_retraso, problema_clasificado, responsable_de_garantia, es_oncologico)
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
      if(!is.null(ruta_exceptuadas_historico)) {
           datos_historicos_exceptuadas <- read_fst(ruta_exceptuadas_historico, as.data.table = FALSE)
+          cat("✅ Histórico EXCEPTUADAS LIGERO cargado:", nrow(datos_historicos_exceptuadas), "registros\n")
      } else {
           datos_historicos_exceptuadas <- datos_recientes_exceptuadas %>%
                select(fecha_corte, periodo_excepcion, problema_clasificado, responsable_de_garantia, es_oncologico)
+          cat("⚠️ Usando datos RECIENTES como respaldo\n")
      }
      
      fecha_max_ret <- max(datos_recientes_retrasadas$fecha_corte, na.rm = TRUE)
@@ -535,10 +395,15 @@ server <- function(input, output, session) {
           responsables_ret <- sort(unique(datos_recientes_retrasadas$responsable_de_garantia))
           problemas_ret <- sort(unique(datos_recientes_retrasadas$problema_clasificado))
           
-          updateSelectInput(session, "responsable_filter", choices = c("", responsables_ret), selected = "")
-          updateSelectInput(session, "problema_filter", choices = c("", problemas_ret), selected = "")
+          updateSelectInput(session, "responsable_filter", 
+                            choices = c("", responsables_ret),
+                            selected = "")
+          updateSelectInput(session, "problema_filter", 
+                            choices = c("", problemas_ret),
+                            selected = "")
      })
      
+     # Reactivos para VIGENTES
      datos_recientes_filt_vig <- reactive({
           df <- datos_recientes_vigentes
           if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
@@ -555,6 +420,7 @@ server <- function(input, output, session) {
           df
      })
      
+     # Reactivos para RETRASADAS
      datos_recientes_filt_ret <- reactive({
           df <- datos_recientes_retrasadas
           if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
@@ -571,6 +437,7 @@ server <- function(input, output, session) {
           df
      })
      
+     # Reactivos para EXCEPTUADAS
      datos_recientes_filt_exc <- reactive({
           df <- datos_recientes_exceptuadas
           if(input$oncologicos_check) df <- df %>% filter(es_oncologico == TRUE)
@@ -593,15 +460,13 @@ server <- function(input, output, session) {
           updateCheckboxInput(session, "oncologicos_check", value = FALSE)
      })
      
-     # 5. TABLAS DE DETALLE USANDO rt_tabla ----
+     # 5. TABLAS DE DETALLE ----
      
      output$tabla_detalle_vigentes <- renderReactable({
           datos <- datos_recientes_filt_vig()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos con los filtros seleccionados")))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -614,90 +479,21 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos")))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Tempranas", "Intermedias", "Avanzadas", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, Tempranas, Intermedias, Avanzadas)
           
-          rt_tabla(
-               tabla_resumen,
-               fijas = c("Responsable de Garantía", "Problema de Salud"),
-               destacar_col = "Total"
-          )
-     })
-     
-     # TABLA DE DISTRIBUCIÓN POR DÍAS - SOLO PARA CASOS AVANZADAS (CON CEROS REEMPLAZADOS POR "-")
-     output$tabla_dias_avanzadas <- renderReactable({
-          datos_avanzadas <- datos_recientes_filt_vig() %>%
-               filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-          
-          req(datos_avanzadas)
-          
-          if(nrow(datos_avanzadas) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")))
-          }
-          
-          if(!"nombre_garantia" %in% names(datos_avanzadas)) {
-               datos_avanzadas <- datos_avanzadas %>%
-                    mutate(nombre_garantia = problema_clasificado)
-          }
-          
-          tbl_vigentes <- datos_avanzadas %>%
-               dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, dias_que_faltan) %>% 
-               dplyr::count() %>% 
-               dplyr::group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-               tidyr::complete(dias_que_faltan = tidyr::full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-               dplyr::arrange(dias_que_faltan) %>% 
-               tidyr::pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>% 
-               dplyr::arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>% 
-               janitor::adorn_totals(where = "col", name = "total") %>% 
-               dplyr::mutate(total = total - dias_totales_plazo) %>% 
-               dplyr::relocate(total, .after = dias_totales_plazo) %>%
-               # 👇 CONVERTIR CEROS A "-" EN TODAS LAS COLUMNAS NUMÉRICAS (EXCEPTO LAS FIJAS Y EL TOTAL)
-               dplyr::mutate(dplyr::across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo, total),
-                                           ~ ifelse(. == 0, "-", as.character(.))))
-          
-          if(nrow(tbl_vigentes) == 0) {
-               return(reactable(data.frame(Mensaje = "No se pudo generar la tabla")))
-          }
-          
-          # Renombrar columnas de días (las que originalmente eran números)
-          for(dia in names(tbl_vigentes)) {
-               if(suppressWarnings(!is.na(as.numeric(dia)))) {
-                    names(tbl_vigentes)[names(tbl_vigentes) == dia] <- paste0("Día ", dia)
-               }
-          }
-          
-          names(tbl_vigentes)[names(tbl_vigentes) == "responsable_de_garantia"] <- "Responsable de Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "problema_clasificado"] <- "Problema de Salud"
-          names(tbl_vigentes)[names(tbl_vigentes) == "nombre_garantia"] <- "Nombre Garantía"
-          names(tbl_vigentes)[names(tbl_vigentes) == "dias_totales_plazo"] <- "Plazo Total en días"
-          names(tbl_vigentes)[names(tbl_vigentes) == "total"] <- "Total Casos"
-          
-          # Reordenar columnas: fijas primero
-          columnas_fijas <- c("Responsable de Garantía", "Problema de Salud", "Nombre Garantía", "Plazo Total en días", "Total Casos")
-          columnas_dias <- names(tbl_vigentes)[grepl("^Día ", names(tbl_vigentes))]
-          otras_columnas <- names(tbl_vigentes)[!names(tbl_vigentes) %in% c(columnas_fijas, columnas_dias)]
-          tbl_vigentes <- tbl_vigentes[, c(columnas_fijas, columnas_dias, otras_columnas)]
-          
-          rt_tabla(
-               tbl_vigentes,
-               fijas = columnas_fijas,
-               destacar_col = "Total Casos"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
      output$tabla_detalle_retrasadas <- renderReactable({
           datos <- datos_recientes_filt_ret()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos")))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -710,29 +506,21 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos")))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Nuevas Vencidas", "Vencidas", "Vencidas Prolongadas", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, `Nuevas Vencidas`, `Vencidas`, `Vencidas Prolongadas`)
           
-          rt_tabla(
-               tabla_resumen,
-               fijas = c("Responsable de Garantía", "Problema de Salud"),
-               destacar_col = "Total"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
      output$tabla_detalle_exceptuadas <- renderReactable({
           datos <- datos_recientes_filt_exc()
           req(datos)
           
-          if(nrow(datos) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos")))
-          }
+          if(nrow(datos) == 0) return(crear_tabla_detalle(NULL))
           
           tabla_resumen <- datos %>%
                group_by(responsable_de_garantia, problema_clasificado) %>%
@@ -744,23 +532,17 @@ server <- function(input, output, session) {
                ) %>%
                arrange(desc(Total))
           
-          if(nrow(tabla_resumen) == 0) {
-               return(reactable(data.frame(Mensaje = "No hay datos")))
-          }
+          if(nrow(tabla_resumen) == 0) return(crear_tabla_detalle(NULL))
           
           names(tabla_resumen) <- c("Responsable de Garantía", "Problema de Salud", "Inasistencia", "Postergación de la Prestación", "Total")
           
           tabla_resumen <- tabla_resumen %>%
                select(`Responsable de Garantía`, `Problema de Salud`, Total, Inasistencia, `Postergación de la Prestación`)
           
-          rt_tabla(
-               tabla_resumen,
-               fijas = c("Responsable de Garantía", "Problema de Salud"),
-               destacar_col = "Total"
-          )
+          crear_tabla_detalle(tabla_resumen, col_fijas = c("Responsable de Garantía", "Problema de Salud"), col_destacar = "Total")
      })
      
-     # 6. OUTPUTS - VIGENTES (tarjetas y gráficos) ----
+     # 6. OUTPUTS - VIGENTES ----
      
      output$tarjeta_total_vigentes <- renderUI({
           datos <- datos_recientes_filt_vig()
@@ -922,7 +704,7 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 7. OUTPUTS - RETRASADAS (resumido) ----
+     # 7. OUTPUTS - RETRASADAS ----
      
      output$tarjeta_total_retrasadas <- renderUI({
           datos <- datos_recientes_filt_ret()
@@ -1076,7 +858,7 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 8. OUTPUTS - EXCEPTUADAS TRANSITORIAS (resumido) ----
+     # 8. OUTPUTS - EXCEPTUADAS TRANSITORIAS ----
      
      output$tarjeta_total_exceptuadas <- renderUI({
           datos <- datos_recientes_filt_exc()
@@ -1221,63 +1003,49 @@ server <- function(input, output, session) {
                        legend = list(orientation = "h", yanchor = "bottom", y = -0.3, xanchor = "center", x = 0.5))
      })
      
-     # 9. DOWNLOAD - DATOS HISTÓRICOS (aplica filtros)
+     # 9. DOWNLOAD - DATOS COMPLETOS (CON RUTAS FLEXIBLES) ----
+     
      output$download_all <- downloadHandler(
-          filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_historicos.xlsx") 
+          filename = function() {
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_completo.xlsx")
           },
           content = function(file) {
-               # Datos históricos filtrados
-               vigentes <- datos_historicos_filt_vig()
-               retrasadas <- datos_historicos_filt_ret()
-               exceptuadas <- datos_historicos_filt_exc()
+               # Definir rutas posibles para cada archivo (igual que en la carga inicial)
+               rutas_vigentes <- c("ges/listados/data/ges_vigentes_historico_ligero.fst", 
+                                   "data/ges_vigentes_historico_ligero.fst")
+               rutas_retrasadas <- c("ges/listados/data/ges_retrasadas_historico_ligero.fst", 
+                                     "data/ges_retrasadas_historico_ligero.fst")
+               rutas_exceptuadas <- c("ges/listados/data/ges_exceptuadas_historico_ligero.fst", 
+                                      "data/ges_exceptuadas_historico_ligero.fst")
                
-               # Tabla de avanzadas por días con datos recientes filtrados
-               if (exists("datos_recientes_filt_vig") && nrow(datos_recientes_filt_vig()) > 0) {
-                    datos_avanzadas <- datos_recientes_filt_vig() %>%
-                         filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-                    
-                    if (nrow(datos_avanzadas) > 0) {
-                         if (!"nombre_garantia" %in% names(datos_avanzadas)) {
-                              datos_avanzadas$nombre_garantia <- datos_avanzadas$problema_clasificado
-                         }
-                         
-                         tbl_avanzadas <- datos_avanzadas %>%
-                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, 
-                                       dias_totales_plazo, dias_que_faltan) %>%
-                              summarise(n = n(), .groups = "drop") %>%
-                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                              complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-                              arrange(dias_que_faltan) %>%
-                              pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>%
-                              arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                              janitor::adorn_totals(where = "col", name = "total") %>%
-                              mutate(total = total - dias_totales_plazo) %>%
-                              relocate(total, .after = dias_totales_plazo) %>%
-                              # Reemplazar ceros por "-" en todas las columnas numéricas excepto dias_totales_plazo
-                              mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
-                                            ~ ifelse(. == 0, "-", as.character(.))))
-                         
-                         for (dia in names(tbl_avanzadas)) {
-                              if (suppressWarnings(!is.na(as.numeric(dia)))) {
-                                   names(tbl_avanzadas)[names(tbl_avanzadas) == dia] <- paste0("Día ", dia)
-                              }
-                         }
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
-                         
-                         tbl_avanzadas <- as.data.frame(tbl_avanzadas)
-                    } else {
-                         tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
-                    }
+               # Encontrar las rutas usando la misma función que ya existe
+               ruta_vigentes <- encontrar_archivo(rutas_vigentes)
+               ruta_retrasadas <- encontrar_archivo(rutas_retrasadas)
+               ruta_exceptuadas <- encontrar_archivo(rutas_exceptuadas)
+               
+               # Cargar datos con respaldo en memoria si no se encuentran los archivos
+               if(!is.null(ruta_vigentes)) {
+                    vigentes <- read_fst(ruta_vigentes, as.data.table = FALSE)
                } else {
-                    tbl_avanzadas <- data.frame(Mensaje = "No se pudieron generar los datos de Avanzadas")
+                    warning("No se encontró archivo histórico de vigentes, usando datos en memoria")
+                    vigentes <- datos_historicos_vigentes
                }
                
-               # Renombrar columnas de los dataframes principales
+               if(!is.null(ruta_retrasadas)) {
+                    retrasadas <- read_fst(ruta_retrasadas, as.data.table = FALSE)
+               } else {
+                    warning("No se encontró archivo histórico de retrasadas, usando datos en memoria")
+                    retrasadas <- datos_historicos_retrasadas
+               }
+               
+               if(!is.null(ruta_exceptuadas)) {
+                    exceptuadas <- read_fst(ruta_exceptuadas, as.data.table = FALSE)
+               } else {
+                    warning("No se encontró archivo histórico de exceptuadas, usando datos en memoria")
+                    exceptuadas <- datos_historicos_exceptuadas
+               }
+               
+               # Renombrar columnas para mejor legibilidad
                names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
                names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
                names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
@@ -1285,108 +1053,88 @@ server <- function(input, output, session) {
                # Crear Excel
                wb <- openxlsx::createWorkbook()
                openxlsx::addWorksheet(wb, "GES Vigentes")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
                openxlsx::addWorksheet(wb, "GES Retrasadas")
                openxlsx::addWorksheet(wb, "GES Exceptuadas")
                
                openxlsx::writeData(wb, "GES Vigentes", vigentes)
-               openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas)
                openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
                openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
                
-               for (sheet in names(wb)) {
-                    openxlsx::setColWidths(wb, sheet, cols = 1, widths = "auto")
+               # Ajustar anchos de columna automáticamente
+               for(sheet in c("GES Vigentes", "GES Retrasadas", "GES Exceptuadas")) {
+                    datos_hoja <- tryCatch({
+                         openxlsx::read.xlsx(wb, sheet = sheet, check.names = FALSE)
+                    }, error = function(e) {
+                         data.frame()
+                    })
+                    if(ncol(datos_hoja) > 0) {
+                         openxlsx::setColWidths(wb, sheet, cols = 1:ncol(datos_hoja), widths = "auto")
+                    }
                }
                
                openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
           }
      )
      
-     # 10. DOWNLOAD - DATOS ÚLTIMO CORTE (aplica filtros)
+     # 10. DOWNLOAD - DATOS FILTRADOS (SEGÚN FILTROS ACTUALES) ----
+     
      output$download_filtered <- downloadHandler(
-          filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_ultimo_corte.xlsx") 
+          filename = function() {
+               paste0(format(Sys.Date(), "%y%m%d"), "_ges_filtrado.xlsx")
           },
           content = function(file) {
-               # Datos recientes filtrados
+               # Obtener los datos actualmente filtrados
                vigentes_filt <- datos_recientes_filt_vig()
                retrasadas_filt <- datos_recientes_filt_ret()
                exceptuadas_filt <- datos_recientes_filt_exc()
                
-               # Tabla avanzada por días con filtros
-               datos_avanzadas <- vigentes_filt %>%
-                    filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-               
-               if (nrow(datos_avanzadas) > 0) {
-                    if (!"nombre_garantia" %in% names(datos_avanzadas)) {
-                         datos_avanzadas$nombre_garantia <- datos_avanzadas$problema_clasificado
-                    }
-                    
-                    tbl_avanzadas <- datos_avanzadas %>%
-                         group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, 
-                                  dias_totales_plazo, dias_que_faltan) %>%
-                         summarise(n = n(), .groups = "drop") %>%
-                         group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                         complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-                         arrange(dias_que_faltan) %>%
-                         pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>%
-                         arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                         janitor::adorn_totals(where = "col", name = "total") %>%
-                         mutate(total = total - dias_totales_plazo) %>%
-                         relocate(total, .after = dias_totales_plazo) %>%
-                         mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
-                                       ~ ifelse(. == 0, "-", as.character(.))))
-                    
-                    for (dia in names(tbl_avanzadas)) {
-                         if (suppressWarnings(!is.na(as.numeric(dia)))) {
-                              names(tbl_avanzadas)[names(tbl_avanzadas) == dia] <- paste0("Día ", dia)
-                         }
-                    }
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
-                    names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
-                    
-                    tbl_avanzadas <- as.data.frame(tbl_avanzadas)
-               } else {
-                    tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
+               # Verificar si hay datos
+               if(nrow(vigentes_filt) == 0 && nrow(retrasadas_filt) == 0 && nrow(exceptuadas_filt) == 0) {
+                    wb <- openxlsx::createWorkbook()
+                    openxlsx::addWorksheet(wb, "Sin datos")
+                    openxlsx::writeData(wb, "Sin datos", data.frame(Mensaje = "No hay datos con los filtros seleccionados"))
+                    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+                    return()
                }
                
-               # Preparar exportación
-               vigentes_export <- vigentes_filt %>% 
+               # Preparar datos para exportar
+               vigentes_export <- vigentes_filt %>%
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           clasificacion_avance, es_oncologico) %>%
-                    as.data.frame()
+                           clasificacion_avance, es_oncologico)
                
-               retrasadas_export <- retrasadas_filt %>% 
+               retrasadas_export <- retrasadas_filt %>%
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           tipo_retraso, dias_atraso, es_oncologico) %>%
-                    as.data.frame()
+                           tipo_retraso, dias_atraso, es_oncologico)
                
-               exceptuadas_export <- exceptuadas_filt %>% 
+               exceptuadas_export <- exceptuadas_filt %>%
                     select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           periodo_excepcion, causal_excepcion, es_oncologico) %>%
-                    as.data.frame()
+                           periodo_excepcion, causal_excepcion, es_oncologico)
                
+               # Renombrar columnas
                names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
                names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
                names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
                
                # Crear Excel
                wb <- openxlsx::createWorkbook()
-               openxlsx::addWorksheet(wb, "GES Vigentes")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
-               openxlsx::addWorksheet(wb, "GES Retrasadas")
-               openxlsx::addWorksheet(wb, "GES Exceptuadas")
+               openxlsx::addWorksheet(wb, "GES Vigentes (filtrados)")
+               openxlsx::addWorksheet(wb, "GES Retrasadas (filtrados)")
+               openxlsx::addWorksheet(wb, "GES Exceptuadas (filtrados)")
                
-               openxlsx::writeData(wb, "GES Vigentes", vigentes_export)
-               openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas)
-               openxlsx::writeData(wb, "GES Retrasadas", retrasadas_export)
-               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas_export)
+               openxlsx::writeData(wb, "GES Vigentes (filtrados)", vigentes_export)
+               openxlsx::writeData(wb, "GES Retrasadas (filtrados)", retrasadas_export)
+               openxlsx::writeData(wb, "GES Exceptuadas (filtrados)", exceptuadas_export)
                
-               for (sheet in names(wb)) {
-                    openxlsx::setColWidths(wb, sheet, cols = 1, widths = "auto")
+               # Ajustar anchos de columna automáticamente
+               for(sheet in c("GES Vigentes (filtrados)", "GES Retrasadas (filtrados)", "GES Exceptuadas (filtrados)")) {
+                    datos_hoja <- tryCatch({
+                         openxlsx::read.xlsx(wb, sheet = sheet, check.names = FALSE)
+                    }, error = function(e) {
+                         data.frame()
+                    })
+                    if(ncol(datos_hoja) > 0) {
+                         openxlsx::setColWidths(wb, sheet, cols = 1:ncol(datos_hoja), widths = "auto")
+                    }
                }
                
                openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
