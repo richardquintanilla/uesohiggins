@@ -174,7 +174,7 @@ ui <- dashboardPage(
     div(style = "display: flex; justify-content: center; align-items: center; gap: 15px; padding: 0 0 0 0; margin: 0; margin-top: 10px;",
         tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_seremi.png", 
                  height = "90px", style = "display: block;"),
-        tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_ues_blanco.png", 
+        tags$img(src = "https://raw.githubusercontent.com/richardquintanilla/uesohiggins/main/www/logo_uaid_blanco.png", 
                  height = "100px", style = "display: block;")
     ),
     
