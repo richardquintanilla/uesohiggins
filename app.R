@@ -8,7 +8,7 @@ library(lubridate)
 library(reactable)
 library(htmltools)
 library(fst)
-library(openxlsx)
+library(writexl)
 library(janitor)
 
 # =====================================================
