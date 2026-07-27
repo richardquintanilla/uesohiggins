@@ -1222,99 +1222,19 @@ server <- function(input, output, session) {
      })
      
      # 9. DOWNLOAD - DATOS HISTÓRICOS (aplica filtros)
-     output$download_all <- downloadHandler(
-          filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_historicos.xlsx") 
-          },
-          content = function(file) {
-               # Datos históricos filtrados
-               vigentes <- datos_historicos_filt_vig()
-               retrasadas <- datos_historicos_filt_ret()
-               exceptuadas <- datos_historicos_filt_exc()
-               
-               # Tabla de avanzadas por días con datos recientes filtrados
-               if (exists("datos_recientes_filt_vig") && nrow(datos_recientes_filt_vig()) > 0) {
-                    datos_avanzadas <- datos_recientes_filt_vig() %>%
-                         filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
-                    
-                    if (nrow(datos_avanzadas) > 0) {
-                         if (!"nombre_garantia" %in% names(datos_avanzadas)) {
-                              datos_avanzadas$nombre_garantia <- datos_avanzadas$problema_clasificado
-                         }
-                         
-                         tbl_avanzadas <- datos_avanzadas %>%
-                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, 
-                                       dias_totales_plazo, dias_que_faltan) %>%
-                              summarise(n = n(), .groups = "drop") %>%
-                              group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                              complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
-                              arrange(dias_que_faltan) %>%
-                              pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>%
-                              arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
-                              janitor::adorn_totals(where = "col", name = "total") %>%
-                              mutate(total = total - dias_totales_plazo) %>%
-                              relocate(total, .after = dias_totales_plazo) %>%
-                              # Reemplazar ceros por "-" en todas las columnas numéricas excepto dias_totales_plazo
-                              mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
-                                            ~ ifelse(. == 0, "-", as.character(.))))
-                         
-                         for (dia in names(tbl_avanzadas)) {
-                              if (suppressWarnings(!is.na(as.numeric(dia)))) {
-                                   names(tbl_avanzadas)[names(tbl_avanzadas) == dia] <- paste0("Día ", dia)
-                              }
-                         }
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
-                         names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
-                         
-                         tbl_avanzadas <- as.data.frame(tbl_avanzadas)
-                    } else {
-                         tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
-                    }
-               } else {
-                    tbl_avanzadas <- data.frame(Mensaje = "No se pudieron generar los datos de Avanzadas")
-               }
-               
-               # Renombrar columnas de los dataframes principales
-               names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
-               
-               # Crear Excel
-               wb <- openxlsx::createWorkbook()
-               openxlsx::addWorksheet(wb, "GES Vigentes")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
-               openxlsx::addWorksheet(wb, "GES Retrasadas")
-               openxlsx::addWorksheet(wb, "GES Exceptuadas")
-               
-               openxlsx::writeData(wb, "GES Vigentes", vigentes)
-               openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas)
-               openxlsx::writeData(wb, "GES Retrasadas", retrasadas)
-               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas)
-               
-               for (sheet in names(wb)) {
-                    openxlsx::setColWidths(wb, sheet, cols = 1, widths = "auto")
-               }
-               
-               openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
-          }
-     )
-     
-     # 10. DOWNLOAD - DATOS ÚLTIMO CORTE (aplica filtros)
-     output$download_filtered <- downloadHandler(
-          filename = function() { 
-               paste0(format(Sys.Date(), "%y%m%d"), "_ges_ultimo_corte.xlsx") 
-          },
-          content = function(file) {
-               # Datos recientes filtrados
-               vigentes_filt <- datos_recientes_filt_vig()
-               retrasadas_filt <- datos_recientes_filt_ret()
-               exceptuadas_filt <- datos_recientes_filt_exc()
-               
-               # Tabla avanzada por días con filtros
-               datos_avanzadas <- vigentes_filt %>%
+output$download_all <- downloadHandler(
+     filename = function() { 
+          paste0(format(Sys.Date(), "%y%m%d"), "_ges_historicos.xlsx") 
+     },
+     content = function(file) {
+          # Datos históricos filtrados
+          vigentes <- datos_historicos_filt_vig()
+          retrasadas <- datos_historicos_filt_ret()
+          exceptuadas <- datos_historicos_filt_exc()
+          
+          # Tabla de avanzadas por días con datos recientes filtrados
+          if (exists("datos_recientes_filt_vig") && nrow(datos_recientes_filt_vig()) > 0) {
+               datos_avanzadas <- datos_recientes_filt_vig() %>%
                     filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
                
                if (nrow(datos_avanzadas) > 0) {
@@ -1352,46 +1272,111 @@ server <- function(input, output, session) {
                } else {
                     tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
                }
-               
-               # Preparar exportación
-               vigentes_export <- vigentes_filt %>% 
-                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           clasificacion_avance, es_oncologico) %>%
-                    as.data.frame()
-               
-               retrasadas_export <- retrasadas_filt %>% 
-                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           tipo_retraso, dias_atraso, es_oncologico) %>%
-                    as.data.frame()
-               
-               exceptuadas_export <- exceptuadas_filt %>% 
-                    select(fecha_corte, problema_clasificado, responsable_de_garantia, 
-                           periodo_excepcion, causal_excepcion, es_oncologico) %>%
-                    as.data.frame()
-               
-               names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
-               names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
-               names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
-               
-               # Crear Excel
-               wb <- openxlsx::createWorkbook()
-               openxlsx::addWorksheet(wb, "GES Vigentes")
-               openxlsx::addWorksheet(wb, "GES Avanzadas por Días")
-               openxlsx::addWorksheet(wb, "GES Retrasadas")
-               openxlsx::addWorksheet(wb, "GES Exceptuadas")
-               
-               openxlsx::writeData(wb, "GES Vigentes", vigentes_export)
-               openxlsx::writeData(wb, "GES Avanzadas por Días", tbl_avanzadas)
-               openxlsx::writeData(wb, "GES Retrasadas", retrasadas_export)
-               openxlsx::writeData(wb, "GES Exceptuadas", exceptuadas_export)
-               
-               for (sheet in names(wb)) {
-                    openxlsx::setColWidths(wb, sheet, cols = 1, widths = "auto")
+          } else {
+               tbl_avanzadas <- data.frame(Mensaje = "No se pudieron generar los datos de Avanzadas")
+          }
+          
+          # Renombrar columnas de los dataframes principales
+          names(vigentes) <- c("Fecha Corte", "Clasificación Avance", "Problema de Salud", "Responsable Garantía", "Oncológico")
+          names(retrasadas) <- c("Fecha Corte", "Tipo Retraso", "Problema de Salud", "Responsable Garantía", "Oncológico")
+          names(exceptuadas) <- c("Fecha Corte", "Período Excepción", "Problema de Salud", "Responsable Garantía", "Oncológico")
+          
+          # Crear lista con las 4 pestañas
+          lista_datos <- list(
+               "GES Vigentes" = vigentes,
+               "GES Avanzadas por Días" = tbl_avanzadas,
+               "GES Retrasadas" = retrasadas,
+               "GES Exceptuadas" = exceptuadas
+          )
+          
+          # Exportar usando writexl
+          writexl::write_xlsx(lista_datos, path = file)
+     }
+)
+
+# 10. DOWNLOAD - DATOS ÚLTIMO CORTE (aplica filtros)
+output$download_filtered <- downloadHandler(
+     filename = function() { 
+          paste0(format(Sys.Date(), "%y%m%d"), "_ges_ultimo_corte.xlsx") 
+     },
+     content = function(file) {
+          # Datos recientes filtrados
+          vigentes_filt <- datos_recientes_filt_vig()
+          retrasadas_filt <- datos_recientes_filt_ret()
+          exceptuadas_filt <- datos_recientes_filt_exc()
+          
+          # Tabla avanzada por días con filtros
+          datos_avanzadas <- vigentes_filt %>%
+               filter(clasificacion_avance == "Avanzadas (Avance > 66% del plazo total)")
+          
+          if (nrow(datos_avanzadas) > 0) {
+               if (!"nombre_garantia" %in% names(datos_avanzadas)) {
+                    datos_avanzadas$nombre_garantia <- datos_avanzadas$problema_clasificado
                }
                
-               openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+               tbl_avanzadas <- datos_avanzadas %>%
+                    group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, 
+                             dias_totales_plazo, dias_que_faltan) %>%
+                    summarise(n = n(), .groups = "drop") %>%
+                    group_by(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
+                    complete(dias_que_faltan = full_seq(dias_que_faltan, period = 1), fill = list(n = 0)) %>%
+                    arrange(dias_que_faltan) %>%
+                    pivot_wider(names_from = dias_que_faltan, values_from = n, values_fill = 0) %>%
+                    arrange(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo) %>%
+                    janitor::adorn_totals(where = "col", name = "total") %>%
+                    mutate(total = total - dias_totales_plazo) %>%
+                    relocate(total, .after = dias_totales_plazo) %>%
+                    mutate(across(-c(responsable_de_garantia, problema_clasificado, nombre_garantia, dias_totales_plazo),
+                                  ~ ifelse(. == 0, "-", as.character(.))))
+               
+               for (dia in names(tbl_avanzadas)) {
+                    if (suppressWarnings(!is.na(as.numeric(dia)))) {
+                         names(tbl_avanzadas)[names(tbl_avanzadas) == dia] <- paste0("Día ", dia)
+                    }
+               }
+               names(tbl_avanzadas)[names(tbl_avanzadas) == "responsable_de_garantia"] <- "Responsable de Garantía"
+               names(tbl_avanzadas)[names(tbl_avanzadas) == "problema_clasificado"] <- "Problema de Salud"
+               names(tbl_avanzadas)[names(tbl_avanzadas) == "nombre_garantia"] <- "Nombre Garantía"
+               names(tbl_avanzadas)[names(tbl_avanzadas) == "dias_totales_plazo"] <- "Plazo Total en días"
+               names(tbl_avanzadas)[names(tbl_avanzadas) == "total"] <- "Total"
+               
+               tbl_avanzadas <- as.data.frame(tbl_avanzadas)
+          } else {
+               tbl_avanzadas <- data.frame(Mensaje = "No hay casos en categoría Avanzadas con los filtros seleccionados")
           }
-     )
+          
+          # Preparar exportación
+          vigentes_export <- vigentes_filt %>% 
+               select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                      clasificacion_avance, es_oncologico) %>%
+               as.data.frame()
+          
+          retrasadas_export <- retrasadas_filt %>% 
+               select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                      tipo_retraso, dias_atraso, es_oncologico) %>%
+               as.data.frame()
+          
+          exceptuadas_export <- exceptuadas_filt %>% 
+               select(fecha_corte, problema_clasificado, responsable_de_garantia, 
+                      periodo_excepcion, causal_excepcion, es_oncologico) %>%
+               as.data.frame()
+          
+          names(vigentes_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Clasificación Avance", "Oncológico")
+          names(retrasadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Tipo Retraso", "Días Atraso", "Oncológico")
+          names(exceptuadas_export) <- c("Fecha Corte", "Problema de Salud", "Responsable Garantía", "Período Excepción", "Causal Excepción", "Oncológico")
+          
+          # Crear lista con las 4 pestañas
+          lista_datos <- list(
+               "GES Vigentes" = vigentes_export,
+               "GES Avanzadas por Días" = tbl_avanzadas,
+               "GES Retrasadas" = retrasadas_export,
+               "GES Exceptuadas" = exceptuadas_export
+          )
+          
+          # Exportar usando writexl
+          writexl::write_xlsx(lista_datos, path = file)
+     }
+)
      
      output$fecha_corte_header <- renderText({
           paste("📅 Fecha de corte:", format(fecha_max_ret, "%d-%m-%Y"))
