@@ -1224,7 +1224,7 @@ server <- function(input, output, session) {
      # 9. DOWNLOAD - DATOS HISTÓRICOS (aplica filtros)
 output$download_all <- downloadHandler(
      filename = function() { 
-          paste0(format(Sys.Date(), "%y%m%d"), "_ges_historicos.xlsx") 
+          paste0(format(Sys.Date(), "%y%m%d"), "_ges_datos_historicos.xlsx") 
      },
      content = function(file) {
           # Datos históricos filtrados
@@ -1286,7 +1286,7 @@ output$download_all <- downloadHandler(
                "GES Vigentes" = vigentes,
                "GES Avanzadas por Días" = tbl_avanzadas,
                "GES Retrasadas" = retrasadas,
-               "GES Exceptuadas" = exceptuadas
+               "GES Exceptuadas Transitorias" = exceptuadas
           )
           
           # Exportar usando writexl
@@ -1297,7 +1297,7 @@ output$download_all <- downloadHandler(
 # 10. DOWNLOAD - DATOS ÚLTIMO CORTE (aplica filtros)
 output$download_filtered <- downloadHandler(
      filename = function() { 
-          paste0(format(Sys.Date(), "%y%m%d"), "_ges_ultimo_corte.xlsx") 
+          paste0(format(Sys.Date(), "%y%m%d"), "_ges_datos_ultimo_corte.xlsx") 
      },
      content = function(file) {
           # Datos recientes filtrados
@@ -1370,7 +1370,7 @@ output$download_filtered <- downloadHandler(
                "GES Vigentes" = vigentes_export,
                "GES Avanzadas por Días" = tbl_avanzadas,
                "GES Retrasadas" = retrasadas_export,
-               "GES Exceptuadas" = exceptuadas_export
+               "GES Exceptuadas Transitorias" = exceptuadas_export
           )
           
           # Exportar usando writexl
